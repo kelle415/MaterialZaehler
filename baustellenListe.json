@@ -1,0 +1,29 @@
+{
+    "baustelle1": {
+        "Material": {
+            "Zement": {
+                "Menge": "300kg"
+            },
+            "Bohrmaschienen": {
+                "Menge": "2stk"
+            },
+            "Hammer": {
+                "Menge": "100stk"
+            }
+        }
+    },
+    "baustelle2": {
+        "Material": {
+            "Holz": {
+                "Menge": "600kg"
+            }
+        }
+    },
+    "baustelle3": {
+        "Material": {
+            "Beton": {
+                "Menge": "1000kg"
+            }
+        }
+    }
+}
