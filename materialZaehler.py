@@ -10,30 +10,34 @@ def baustellenListedatenLaden():
     with open("baustellenListe.json","r", encoding="utf-8") as f:
         return json.load(f)
 
-def speichernInListe(baustellenListe):
-    #hier soll eine funktion hin die alle keys in eine such begriffe liste rein packt damit man dann nur die liste in material ändern() einsetzten muss
+def temporaereListeBaustelleerstellen(baustellenListe):
+    return list(baustellenListe.keys())
+
+def temporaereListeMaterialerstellen(baustellenListe,baustellenInput):
     temporaereListeMaterial = []
+    materialien = baustellenListe.get(baustellenInput,{}).get("Material",{})
+    for materialname in materialien.keys():
+        temporaereListeMaterial.append(materialname)
+    
+    return temporaereListeMaterial
+
+def temporaereListeMenge_temporaereListeEinheit_erstellen(baustellenListe,baustellenInput):
     temporaereListeMenge = []
     temporaereListeEinheit =[]
-    temporaereListeBaustelle= []
-    
-    for baustelle, baustellen_daten in baustellenListe.items():
-        temporaereListeBaustelle.append(baustelle)
+    materialien = baustellenListe.get(baustellenInput,{}).get("Material",{})
+    for info in materialien.values():
+        temporaereListeMenge.append(info.get("Menge"))
+        temporaereListeEinheit.append(info.get("Einheit"))
 
-        materialien = baustellen_daten.get("Material", {})
-        for materialname, info in materialien.items():
-            temporaereListeMaterial.append(materialname)
-            temporaereListeMenge.append(info.get("Menge"))
-            temporaereListeEinheit.append(info.get("Einheit"))
+    return temporaereListeEinheit,temporaereListeMenge
 
-    return (temporaereListeEinheit,temporaereListeBaustelle,temporaereListeMaterial,temporaereListeMenge)
 
 def baustellendatenspeichern(baustellenListe):
     with open("baustellenListe.json", "w",encoding="utf-8") as f:
         json.dump(baustellenListe,f,indent=4, ensure_ascii=False)
 
 def baustelleAbfragen():
-    baustellenInput = input("Auf welcher baustelle bist du im moment: ")
+    baustellenInput = input(f"Auf welcher baustelle bist du im moment: ")
     return baustellenInput
 
 def materialUndMengeAbfrage():
@@ -47,24 +51,26 @@ def baustellendatenzusammenstellen(baustellenInput,materialname,materialmenge,ma
     baustellendatenspeichern(baustellenListe)
 
 def menueverweis():
+    baustellenInput= baustelleAbfragen()
     print("was möchtest du heute machen? \n 1. Material eintragen\n 2. Material Liste anzeigen\n 3. Material ändern\n 4. Beenden")
     menue = str(input("Antwort: "))
     if menue in ("eintragen","Material eintragen","1"):
         materialEintragen()
+        zurueck()
     elif menue in ("Liste anzeigen","Material anzeigen","2"):
-        materialAnzeigen(baustellenListe)
+        materialAnzeigen(baustellenListe,baustellenInput)
+        zurueck()
     elif menue in ("aus liste entfernen","Material ändern","3"):
-        materialAendernabfragen()
+        materialAendernabfragen(baustellenInput)
+        zurueck()
     elif menue in ("Beenden","4"):
         beenden()
         
-def materialEintragen():
-    baustellenInput = baustelleAbfragen()
+def materialEintragen(baustellenInput):
     materialname, materialmenge, materialeinheit= materialUndMengeAbfrage()
     baustellendatenzusammenstellen(baustellenInput,materialname,materialmenge, materialeinheit)
 
-def materialAnzeigen(baustellenListe):
-    baustellenInput = baustelleAbfragen()
+def materialAnzeigen(baustellenListe,baustellenInput):
     print("\n","-" * 25)
     print(f" Baustelle: {baustellenInput}")
 
@@ -79,13 +85,16 @@ def materialAnzeigen(baustellenListe):
         print(f"- {name}: {menge} {einheit}")
     print("-" * 25,"\n")
 
-def materialAendernabfragen():
-    temporaereListeEinheit,temporaereListeBaustelle,temporaereListeMaterial,temporaereListeMenge = speichernInListe()
-    materialAnzeigen(baustellenListe)
+def materialAendernabfragen(baustellenInput):
+    temporaereListeMaterial = temporaereListeMaterialerstellen(baustellenListe,baustellenInput)
+    temporaereListeBaustelle = temporaereListeBaustelleerstellen(baustellenListe)
+    temporaereListeEinheit,temporaereListeMenge = temporaereListeMenge_temporaereListeEinheit_erstellen(baustellenListe,baustellenInput)
+    materialAnzeigen(baustellenListe,baustellenInput)
     print("was möchtest du ändern ?")
+    print(f"\n 1. Baustellennamen{temporaereListeBaustelle},\n 2. Material{temporaereListeMaterial},\n 3. Menge{temporaereListeMenge},\n 4. Einheiten,\n 5. Nichts(Beenden)")
     abfrage = input("\n")
-    if abfrage in temporaereListeBaustelle:
-        pass
+    if abfrage in ("1","Baustellennamen","baustellen"):
+        baustelleAendernabfragen(abfrage)
     elif abfrage in temporaereListeMaterial:
         pass
     elif abfrage in temporaereListeMenge:
@@ -94,6 +103,21 @@ def materialAendernabfragen():
         pass
     else: 
         print("unverwertbare eingabe")
+
+def baustelleAendernabfragen(abfrage):
+    print(f"Möchtest du hierraus {abfrage} etwas ändern? (J/N)")
+    aenderninput= input("\n")
+    if aenderninput == "J":
+        aendern()
+
+def aendern():
+    geaendert = input("Bitte gib den geänderten namen ein: ")
+    sicherheitsfrage = input(f"ist {geaendert} richtig geschrieben? (J/N)")
+    if sicherheitsfrage == "J":
+        wert = ""
+        baustellenListe[geaendert]
+        baustellendatenspeichern(baustellenListe)
+
 
 def zurueck():
     abfragezurueck = input("Möchtest du zurück ins hauptmenue? (J/N)")
