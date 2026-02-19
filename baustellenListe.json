@@ -2,27 +2,36 @@
     "baustelle1": {
         "Material": {
             "Zement": {
-                "Menge": "300kg"
+                "Menge": 300,
+                "Einheit": "kg"
             },
             "Bohrmaschienen": {
-                "Menge": "2stk"
+                "Menge": 2,
+                "Einheit": "stk"
             },
             "Hammer": {
-                "Menge": "100stk"
+                "Menge": 100,
+                "Einheit": "stk"
             }
         }
     },
     "baustelle2": {
         "Material": {
             "Holz": {
-                "Menge": "600kg"
+                "Menge": 600,
+                "Einheit": "kg"
+            },
+            "Steine": {
+                "Menge": 1000,
+                "Einheit": "kg"
             }
         }
     },
     "baustelle3": {
         "Material": {
             "Beton": {
-                "Menge": "1000kg"
+                "Menge": 1000,
+                "Einheit": "kg"
             }
         }
     }
