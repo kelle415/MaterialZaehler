@@ -1,8 +1,8 @@
 {
-    "baustelle1": {
+    "Bielefeld": {
         "Material": {
             "Zement": {
-                "Menge": 300,
+                "Menge": 200,
                 "Einheit": "kg"
             },
             "Bohrmaschienen": {
@@ -12,10 +12,22 @@
             "Hammer": {
                 "Menge": 100,
                 "Einheit": "stk"
+            },
+            "Eimer": {
+                "Menge": 3,
+                "Einheit": "Stk"
+            },
+            "Handkreissäge": {
+                "Menge": 1,
+                "Einheit": "Stk"
+            },
+            "Tischkreissäge": {
+                "Menge": 1,
+                "Einheit": "Stk"
             }
         }
     },
-    "baustelle2": {
+    "Hamburg": {
         "Material": {
             "Holz": {
                 "Menge": 600,
@@ -27,7 +39,7 @@
             }
         }
     },
-    "baustelle3": {
+    "Köln": {
         "Material": {
             "Beton": {
                 "Menge": 1000,
