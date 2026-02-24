@@ -30,7 +30,6 @@ def temporaereListeMenge_temporaereListeEinheit_erstellen(baustellenListe,bauste
 
     return temporaereListeEinheit,temporaereListeMenge
 
-
 def baustellendatenspeichern(baustellenListe):
     with open("baustellenListe.json", "w",encoding="utf-8") as f:
         json.dump(baustellenListe,f,indent=4, ensure_ascii=False)
@@ -51,20 +50,23 @@ def baustellendatenzusammenstellen(baustellenInput,materialname,materialmenge,ma
 
 def menueverweis():
     print("\nWas möchtest du heute machen? \n 1. Material eintragen\n 2. Material Liste anzeigen\n 3. Material ändern\n 4. Beenden")
-    menue = str(input("\nAntwort: "))
+    menue = str(input("\nAntwort: ")).lower()
     baustellenInput= baustelleAbfragen()
-    if menue in ("eintragen","Material eintragen","1"):
+    if menue in ("eintragen","material eintragen","1"):
         materialEintragen(baustellenInput)
         zurueck()
-    elif menue in ("Liste anzeigen","Material anzeigen","2"):
+    elif menue in ("liste anzeigen","material anzeigen","2"):
         materialAnzeigen(baustellenListe,baustellenInput)
         zurueck()
-    elif menue in ("aus liste entfernen","Material ändern","3"):
+    elif menue in ("aus liste entfernen","material ändern","3"):
         allgemeinAendernabfragen(baustellenListe,baustellenInput)
         zurueck()
-    if menue in ("Beenden","4"):
+    elif menue in ("beenden","4"):
         beenden()
-        
+    else:
+        print("ungültige eingabe")
+        menueverweis()
+ 
 def materialEintragen(baustellenInput):
     materialname, materialmenge, materialeinheit= materialUndMengeAbfrage()
     baustellendatenzusammenstellen(baustellenInput,materialname,materialmenge, materialeinheit)
@@ -82,8 +84,6 @@ def materialAnzeigen(baustellenListe,baustellenInput):
         einheit = info["Einheit"]
         print(f"- {name}: {menge} {einheit}")
     print("-" * 25,"\n")
-def bennung():
-    "hier soll dann mitgegebne werden ob tembaustellen oder tempmaterial oder tempmenge angezeigt wird"
 
 def allgemeinAendernabfragen(baustellenListe,baustellenInput):
     temporaereListeMaterial = temporaereListeMaterialerstellen(baustellenListe,baustellenInput)
@@ -178,7 +178,6 @@ def mengenaendern(baustellenListe,baustellenInput,zuaendern,geandert,sicherheits
         materialAnzeigen(baustellenListe,baustellenInput)
     elif sicherheitsfrage == "N":
         aendernabfragen(baustellenListe,baustellenInput)
-
 
 def zurueck():
     abfragezurueck = input("Möchtest du zurück ins hauptmenue? (J/N): ")
