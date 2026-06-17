@@ -24,6 +24,10 @@
             "Tischkreissäge": {
                 "Menge": 1,
                 "Einheit": "Stk"
+            },
+            "Holz": {
+                "Menge": 1000,
+                "Einheit": "kg"
             }
         }
     },
@@ -46,5 +50,9 @@
                 "Einheit": "kg"
             }
         }
+    },
+    "Firmenlager": {
+        "Typ": "Lager",
+        "Material": {}
     }
 }
