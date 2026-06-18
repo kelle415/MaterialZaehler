@@ -2,8 +2,26 @@
     "Bielefeld": {
         "Material": {
             "Zement": {
-                "Menge": 200,
-                "Einheit": "kg"
+                "Menge": 300,
+                "Einheit": "kg",
+                "Bewegungen": [
+                    {
+                        "Art": "zugang",
+                        "Menge": 300,
+                        "Einheit": "kg",
+                        "BestandVorher": 200,
+                        "BestandNachher": 500,
+                        "Zeitpunkt": "2026-06-18T09:54:18+00:00"
+                    },
+                    {
+                        "Art": "abgang",
+                        "Menge": 200,
+                        "Einheit": "kg",
+                        "BestandVorher": 500,
+                        "BestandNachher": 300,
+                        "Zeitpunkt": "2026-06-18T09:55:43+00:00"
+                    }
+                ]
             },
             "Bohrmaschienen": {
                 "Menge": 2,
