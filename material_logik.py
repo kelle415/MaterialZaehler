@@ -46,7 +46,9 @@ def baustellen_namen(baustellen_liste):
 def text_normalisieren(text):
     text = str(text).strip().casefold()
     text = unicodedata.normalize("NFKD", text)
-    return "".join(zeichen for zeichen in text if not unicodedata.combining(zeichen))
+    return "".join(
+        zeichen for zeichen in text if not unicodedata.combining(zeichen)
+    ).strip()
 
 
 def buchungsart_normalisieren(eingabe):
