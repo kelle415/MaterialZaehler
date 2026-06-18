@@ -7,12 +7,14 @@ Fachlogik und Datenspeicherung getrennt weiterentwickelt werden koennen.
 
 ## Aktueller Funktionsumfang
 
-- Material fuer Baustellen oder Standorte erfassen
+- Material fuer Baustellen oder Standorte buchen
+- Zugang, Abgang und Bestandskorrektur erfassen
 - Materiallisten pro Baustelle anzeigen
 - Materialnamen, Mengen und Einheiten aendern
 - Baustellen umbenennen
 - Firmenlager automatisch sicherstellen und anzeigen
 - Bestellanfragen erfassen und anzeigen
+- Materialbewegungen im Materialeintrag protokollieren
 - Tippfehler-Abgleich fuer Baustellen- und Standortnamen
 - Automatisierte Tests fuer Fachlogik, Datenspeicherung und Eingabehelfer
 
@@ -64,6 +66,22 @@ Nach dem Start fuehrt das Hauptmenue durch die vorhandenen Funktionen:
 5. Material bestellen
 6. Beenden
 
+## Materialbuchungen
+
+Material wird ueber Buchungsarten erfasst:
+
+- `Zugang`: addiert die eingegebene Menge zum vorhandenen Bestand
+- `Abgang`: zieht die eingegebene Menge vom vorhandenen Bestand ab
+- `Korrektur`: setzt den Bestand bewusst auf die eingegebene Menge
+
+Wenn ein Material noch nicht vorhanden ist, wird es bei Zugang oder Korrektur
+neu angelegt. Ein Abgang fuer unbekanntes Material wird abgelehnt. Ein Abgang,
+der den Bestand unter 0 setzen wuerde, wird ebenfalls abgelehnt.
+Eine Korrektur darf den Bestand auch auf 0 setzen.
+
+Bei vorhandenem Material muss die eingegebene Einheit zur gespeicherten Einheit
+passen. Dadurch werden versehentliche Mischungen wie `kg` und `Stk` verhindert.
+
 ## Baustellen-Suche und Tippfehler-Abgleich
 
 Bei Eingaben von Baustellen oder Standorten wird die Eingabe mit bekannten
@@ -97,7 +115,17 @@ Beispiel fuer eine Baustelle:
     "Material": {
       "Zement": {
         "Menge": 200,
-        "Einheit": "kg"
+        "Einheit": "kg",
+        "Bewegungen": [
+          {
+            "Art": "zugang",
+            "Menge": 200,
+            "Einheit": "kg",
+            "BestandVorher": 0,
+            "BestandNachher": 200,
+            "Zeitpunkt": "2026-06-18T09:00:00+00:00"
+          }
+        ]
       }
     }
   }
@@ -141,6 +169,7 @@ python -m unittest discover -s tests
 Die Tests decken unter anderem ab:
 
 - Material eintragen und aktualisieren
+- Zugang, Abgang und Korrektur von Material
 - Baustellen und Material umbenennen
 - Mengen und Einheiten aendern
 - Bestellanfragen erstellen
@@ -153,13 +182,13 @@ Die Tests decken unter anderem ab:
 
 - Keine gleichzeitige Bearbeitung durch mehrere Benutzer
 - Keine Zugriffskontrolle oder Benutzerrollen
-- Keine Historie fuer Materialbewegungen
+- Keine Auswertung oder Filterung der Materialbewegungen
 - Keine Validierung gegen zentrale Artikel- oder Baustellenstammdaten
 - JSON-Dateien sind fuer produktive Mehrbenutzer-Szenarien nur begrenzt geeignet
 
 ## Naechste sinnvolle Erweiterungen
 
-- Materialbewegungen protokollieren
+- Materialbewegungen anzeigen und auswerten
 - Bestellanfragen mit Statuswechseln erweitern
 - Import und Export fuer CSV oder Excel
 - Datenbankanbindung vorbereiten

@@ -1,8 +1,12 @@
+from datetime import datetime, timezone
 from difflib import SequenceMatcher
 import unicodedata
 
 
 FIRMENLAGER_NAME = "Firmenlager"
+BUCHUNGSART_ZUGANG = "zugang"
+BUCHUNGSART_ABGANG = "abgang"
+BUCHUNGSART_KORREKTUR = "korrektur"
 
 
 def ist_standort(eintrag):
@@ -19,6 +23,33 @@ def text_normalisieren(text):
     text = str(text).strip().casefold()
     text = unicodedata.normalize("NFKD", text)
     return "".join(zeichen for zeichen in text if not unicodedata.combining(zeichen))
+
+
+def buchungsart_normalisieren(eingabe):
+    buchungsart = text_normalisieren(eingabe)
+    if buchungsart in ("1", "zugang", "addieren", "plus"):
+        return BUCHUNGSART_ZUGANG
+    if buchungsart in ("2", "abgang", "abziehen", "minus"):
+        return BUCHUNGSART_ABGANG
+    if buchungsart in ("3", "korrektur", "korrigieren", "setzen"):
+        return BUCHUNGSART_KORREKTUR
+    return None
+
+
+def bewegung_erstellen(buchungsart, menge, einheit, bestand_vorher, bestand_nachher):
+    zeitpunkt = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    return {
+        "Art": buchungsart,
+        "Menge": menge,
+        "Einheit": einheit,
+        "BestandVorher": bestand_vorher,
+        "BestandNachher": bestand_nachher,
+        "Zeitpunkt": zeitpunkt,
+    }
+
+
+def einheiten_stimmen_ueberein(einheit, vorhandene_einheit):
+    return text_normalisieren(einheit) == text_normalisieren(vorhandene_einheit)
 
 
 def baustellen_vorschlaege(
@@ -88,19 +119,83 @@ def mengen_und_einheiten(baustellen_liste, baustellen_name):
     return einheiten, mengen
 
 
-def material_eintragen(baustellen_liste, baustellen_name, material_name, menge, einheit):
+def material_eintragen(
+    baustellen_liste,
+    baustellen_name,
+    material_name,
+    menge,
+    einheit,
+    buchungsart=BUCHUNGSART_ZUGANG,
+):
+    buchungsart = buchungsart_normalisieren(buchungsart)
+    if buchungsart is None:
+        return False, "Buchungsart ist ungueltig"
+    if menge < 0:
+        return False, "Bitte gib eine Menge ab 0 ein"
+    if buchungsart != BUCHUNGSART_KORREKTUR and menge == 0:
+        return False, "Bitte gib eine Menge groesser als 0 ein"
+
     baustelle = baustellen_liste.setdefault(
         baustellen_name, {"Typ": "Baustelle", "Material": {}}
     )
     if not isinstance(baustelle, dict):
-        return False, "Standortdaten sind ungültig"
+        return False, "Standortdaten sind ungueltig"
 
     materialien = baustelle.setdefault("Material", {})
     if not isinstance(materialien, dict):
-        return False, "Materialdaten sind ungültig"
+        return False, "Materialdaten sind ungueltig"
 
-    materialien[material_name] = {"Menge": menge, "Einheit": einheit}
-    return True, "Material gespeichert"
+    material = materialien.get(material_name)
+    if material is None:
+        if buchungsart == BUCHUNGSART_ABGANG:
+            return False, "Material nicht gefunden"
+
+        bestand_vorher = 0
+        bestand_nachher = menge
+        materialien[material_name] = {
+            "Menge": bestand_nachher,
+            "Einheit": einheit,
+            "Bewegungen": [
+                bewegung_erstellen(
+                    buchungsart, menge, einheit, bestand_vorher, bestand_nachher
+                )
+            ],
+        }
+        return True, "Materialbuchung gespeichert"
+
+    if not isinstance(material, dict):
+        return False, "Materialdaten sind ungueltig"
+
+    bestand_vorher = material.get("Menge")
+    vorhandene_einheit = material.get("Einheit")
+    if not isinstance(bestand_vorher, int):
+        return False, "Materialmenge ist ungueltig"
+    if not vorhandene_einheit:
+        return False, "Materialeinheit ist ungueltig"
+    if not einheiten_stimmen_ueberein(einheit, vorhandene_einheit):
+        return False, "Einheit stimmt nicht mit vorhandener Einheit ueberein"
+
+    if buchungsart == BUCHUNGSART_ZUGANG:
+        bestand_nachher = bestand_vorher + menge
+    elif buchungsart == BUCHUNGSART_ABGANG:
+        bestand_nachher = bestand_vorher - menge
+        if bestand_nachher < 0:
+            return False, "Bestand reicht nicht aus"
+    else:
+        bestand_nachher = menge
+
+    bewegungen = material.setdefault("Bewegungen", [])
+    if not isinstance(bewegungen, list):
+        return False, "Bewegungsdaten sind ungueltig"
+
+    material["Menge"] = bestand_nachher
+    material["Einheit"] = vorhandene_einheit
+    bewegungen.append(
+        bewegung_erstellen(
+            buchungsart, menge, vorhandene_einheit, bestand_vorher, bestand_nachher
+        )
+    )
+    return True, "Materialbuchung gespeichert"
 
 
 def baustelle_umbenennen(baustellen_liste, alter_name, neuer_name):
@@ -135,8 +230,15 @@ def menge_aendern(baustellen_liste, baustellen_name, material_name, neue_menge):
     if material_name not in materialien:
         return False, "Material nicht gefunden"
 
-    materialien[material_name]["Menge"] = neue_menge
-    return True, "Menge geändert"
+    einheit = materialien[material_name].get("Einheit")
+    return material_eintragen(
+        baustellen_liste,
+        baustellen_name,
+        material_name,
+        neue_menge,
+        einheit,
+        BUCHUNGSART_KORREKTUR,
+    )
 
 
 def einheit_aendern(baustellen_liste, baustellen_name, material_name, neue_einheit):

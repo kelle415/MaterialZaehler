@@ -1,11 +1,15 @@
 import unittest
 
 from material_logik import (
+    BUCHUNGSART_ABGANG,
+    BUCHUNGSART_KORREKTUR,
+    BUCHUNGSART_ZUGANG,
     FIRMENLAGER_NAME,
     baustelle_umbenennen,
     baustellen_namen,
     baustellen_vorschlaege,
     bestellanfrage_erstellen,
+    buchungsart_normalisieren,
     einheit_aendern,
     lager_sicherstellen,
     material_eintragen,
@@ -69,6 +73,12 @@ class MaterialLogikTests(unittest.TestCase):
         self.assertEqual(baustellen[FIRMENLAGER_NAME]["Typ"], "Lager")
         self.assertEqual(baustellen[FIRMENLAGER_NAME]["Material"], {})
 
+    def test_buchungsart_normalisieren_erkennt_eingaben(self):
+        self.assertEqual(buchungsart_normalisieren("1"), BUCHUNGSART_ZUGANG)
+        self.assertEqual(buchungsart_normalisieren("minus"), BUCHUNGSART_ABGANG)
+        self.assertEqual(buchungsart_normalisieren("Korrektur"), BUCHUNGSART_KORREKTUR)
+        self.assertIsNone(buchungsart_normalisieren("unbekannt"))
+
     def test_material_eintragen_legt_neuen_standort_an(self):
         baustellen = beispiel_baustellen()
 
@@ -77,16 +87,98 @@ class MaterialLogikTests(unittest.TestCase):
         )
 
         self.assertTrue(erfolgreich)
-        self.assertEqual(meldung, "Material gespeichert")
+        self.assertEqual(meldung, "Materialbuchung gespeichert")
         self.assertEqual(baustellen["Köln"]["Typ"], "Baustelle")
         self.assertEqual(baustellen["Köln"]["Material"]["Beton"]["Menge"], 1000)
+        bewegung = baustellen["Köln"]["Material"]["Beton"]["Bewegungen"][0]
+        self.assertEqual(bewegung["Art"], BUCHUNGSART_ZUGANG)
+        self.assertEqual(bewegung["BestandVorher"], 0)
+        self.assertEqual(bewegung["BestandNachher"], 1000)
 
-    def test_material_eintragen_aktualisiert_vorhandenes_material(self):
+    def test_material_eintragen_addiert_vorhandenes_material_als_zugang(self):
         baustellen = beispiel_baustellen()
 
-        material_eintragen(baustellen, "Bielefeld", "Zement", 250, "kg")
+        erfolgreich, meldung = material_eintragen(
+            baustellen, "Bielefeld", "Zement", 50, "kg", BUCHUNGSART_ZUGANG
+        )
 
+        self.assertTrue(erfolgreich)
+        self.assertEqual(meldung, "Materialbuchung gespeichert")
         self.assertEqual(baustellen["Bielefeld"]["Material"]["Zement"]["Menge"], 250)
+        bewegung = baustellen["Bielefeld"]["Material"]["Zement"]["Bewegungen"][0]
+        self.assertEqual(bewegung["Art"], BUCHUNGSART_ZUGANG)
+        self.assertEqual(bewegung["BestandVorher"], 200)
+        self.assertEqual(bewegung["BestandNachher"], 250)
+
+    def test_material_eintragen_zieht_abgang_ab(self):
+        baustellen = beispiel_baustellen()
+
+        erfolgreich, meldung = material_eintragen(
+            baustellen, "Bielefeld", "Zement", 50, "kg", BUCHUNGSART_ABGANG
+        )
+
+        self.assertTrue(erfolgreich)
+        self.assertEqual(meldung, "Materialbuchung gespeichert")
+        self.assertEqual(baustellen["Bielefeld"]["Material"]["Zement"]["Menge"], 150)
+
+    def test_material_eintragen_verhindert_negativen_bestand(self):
+        baustellen = beispiel_baustellen()
+
+        erfolgreich, meldung = material_eintragen(
+            baustellen, "Bielefeld", "Zement", 250, "kg", BUCHUNGSART_ABGANG
+        )
+
+        self.assertFalse(erfolgreich)
+        self.assertEqual(meldung, "Bestand reicht nicht aus")
+        self.assertEqual(baustellen["Bielefeld"]["Material"]["Zement"]["Menge"], 200)
+
+    def test_material_eintragen_korrigiert_bestand(self):
+        baustellen = beispiel_baustellen()
+
+        erfolgreich, meldung = material_eintragen(
+            baustellen, "Bielefeld", "Zement", 20, "kg", BUCHUNGSART_KORREKTUR
+        )
+
+        self.assertTrue(erfolgreich)
+        self.assertEqual(meldung, "Materialbuchung gespeichert")
+        self.assertEqual(baustellen["Bielefeld"]["Material"]["Zement"]["Menge"], 20)
+        bewegung = baustellen["Bielefeld"]["Material"]["Zement"]["Bewegungen"][0]
+        self.assertEqual(bewegung["Art"], BUCHUNGSART_KORREKTUR)
+        self.assertEqual(bewegung["BestandVorher"], 200)
+        self.assertEqual(bewegung["BestandNachher"], 20)
+
+    def test_material_eintragen_korrigiert_bestand_auf_null(self):
+        baustellen = beispiel_baustellen()
+
+        erfolgreich, meldung = material_eintragen(
+            baustellen, "Bielefeld", "Zement", 0, "kg", BUCHUNGSART_KORREKTUR
+        )
+
+        self.assertTrue(erfolgreich)
+        self.assertEqual(meldung, "Materialbuchung gespeichert")
+        self.assertEqual(baustellen["Bielefeld"]["Material"]["Zement"]["Menge"], 0)
+
+    def test_material_eintragen_lehnt_abgang_fuer_unbekanntes_material_ab(self):
+        baustellen = beispiel_baustellen()
+
+        erfolgreich, meldung = material_eintragen(
+            baustellen, "Bielefeld", "Beton", 20, "kg", BUCHUNGSART_ABGANG
+        )
+
+        self.assertFalse(erfolgreich)
+        self.assertEqual(meldung, "Material nicht gefunden")
+        self.assertNotIn("Beton", baustellen["Bielefeld"]["Material"])
+
+    def test_material_eintragen_lehnt_falsche_einheit_ab(self):
+        baustellen = beispiel_baustellen()
+
+        erfolgreich, meldung = material_eintragen(
+            baustellen, "Bielefeld", "Zement", 20, "Stk", BUCHUNGSART_ZUGANG
+        )
+
+        self.assertFalse(erfolgreich)
+        self.assertEqual(meldung, "Einheit stimmt nicht mit vorhandener Einheit ueberein")
+        self.assertEqual(baustellen["Bielefeld"]["Material"]["Zement"]["Menge"], 200)
 
     def test_materialien_fuer_unbekannten_standort_ist_none(self):
         baustellen = beispiel_baustellen()
@@ -160,8 +252,12 @@ class MaterialLogikTests(unittest.TestCase):
         erfolgreich, meldung = menge_aendern(baustellen, "Bielefeld", "Hammer", 10)
 
         self.assertTrue(erfolgreich)
-        self.assertEqual(meldung, "Menge geändert")
+        self.assertEqual(meldung, "Materialbuchung gespeichert")
         self.assertEqual(baustellen["Bielefeld"]["Material"]["Hammer"]["Menge"], 10)
+        bewegung = baustellen["Bielefeld"]["Material"]["Hammer"]["Bewegungen"][0]
+        self.assertEqual(bewegung["Art"], BUCHUNGSART_KORREKTUR)
+        self.assertEqual(bewegung["BestandVorher"], 5)
+        self.assertEqual(bewegung["BestandNachher"], 10)
 
     def test_einheit_aendern(self):
         baustellen = beispiel_baustellen()

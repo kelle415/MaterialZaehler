@@ -10,11 +10,13 @@ from datenspeicher import (
     bestellanfragen_speichern,
 )
 from material_logik import (
+    BUCHUNGSART_KORREKTUR,
     FIRMENLAGER_NAME,
     baustelle_umbenennen,
     baustellen_namen,
     baustellen_vorschlaege,
     bestellanfrage_erstellen,
+    buchungsart_normalisieren,
     einheit_aendern,
     lager_sicherstellen,
     material_eintragen,
@@ -113,20 +115,36 @@ def baustellenNamenAenderungAbfragen(baustellenListe):
     return zuaendern, geandert, sicherheitsfrage, None
 
 
+def buchungsartAbfragen():
+    print(
+        "\nWelche Materialbuchung moechtest du erfassen?"
+        "\n 1. Zugang"
+        "\n 2. Abgang"
+        "\n 3. Korrektur"
+    )
+    while True:
+        buchungsart = buchungsart_normalisieren(input("Antwort: "))
+        if buchungsart is not None:
+            return buchungsart
+        print("Bitte waehle Zugang, Abgang oder Korrektur.")
+
+
 def materialUndMengeAbfrage():
+    buchungsart = buchungsartAbfragen()
     materialname = textAbfragen(
         "welches material möchtest du eintragen: ",
         "Bitte gib einen Materialnamen ein.",
     )
+    mindestmenge = 0 if buchungsart == BUCHUNGSART_KORREKTUR else 1
     materialmenge = ganzzahlAbfragen(
-        f"wie viel {materialname} möchtest du eintragen: "
+        f"wie viel {materialname} möchtest du eintragen: ", minimum=mindestmenge
     )
     materialeinheit = textAbfragen(
         f"welche einheit hat {materialname} mit menge {materialmenge}: ",
         "Bitte gib eine Einheit ein.",
     )
 
-    return materialname, materialmenge, materialeinheit
+    return buchungsart, materialname, materialmenge, materialeinheit
 
 
 def bestellDatenAbfragen(baustellenListe):
@@ -194,9 +212,14 @@ def menueverweis(baustellenListe, bestellanfragenListe):
 
 
 def materialEintragen(baustellenListe, baustellenInput):
-    materialname, materialmenge, materialeinheit = materialUndMengeAbfrage()
+    buchungsart, materialname, materialmenge, materialeinheit = materialUndMengeAbfrage()
     erfolgreich, meldung = material_eintragen(
-        baustellenListe, baustellenInput, materialname, materialmenge, materialeinheit
+        baustellenListe,
+        baustellenInput,
+        materialname,
+        materialmenge,
+        materialeinheit,
+        buchungsart,
     )
     print(meldung)
     if erfolgreich:
