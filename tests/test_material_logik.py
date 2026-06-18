@@ -4,11 +4,16 @@ from material_logik import (
     BUCHUNGSART_ABGANG,
     BUCHUNGSART_KORREKTUR,
     BUCHUNGSART_ZUGANG,
+    BESTELLSTATUS_BESTELLT,
+    BESTELLSTATUS_GELIEFERT,
     FIRMENLAGER_NAME,
+    baustelle_anlegen,
     baustelle_umbenennen,
     baustellen_namen,
     baustellen_vorschlaege,
     bestellanfrage_erstellen,
+    bestellanfrage_status_aendern,
+    bestellstatus_normalisieren,
     buchungsart_normalisieren,
     einheit_aendern,
     lager_sicherstellen,
@@ -78,6 +83,11 @@ class MaterialLogikTests(unittest.TestCase):
         self.assertEqual(buchungsart_normalisieren("minus"), BUCHUNGSART_ABGANG)
         self.assertEqual(buchungsart_normalisieren("Korrektur"), BUCHUNGSART_KORREKTUR)
         self.assertIsNone(buchungsart_normalisieren("unbekannt"))
+
+    def test_bestellstatus_normalisieren_erkennt_eingaben(self):
+        self.assertEqual(bestellstatus_normalisieren("2"), BESTELLSTATUS_BESTELLT)
+        self.assertEqual(bestellstatus_normalisieren("geliefert"), BESTELLSTATUS_GELIEFERT)
+        self.assertIsNone(bestellstatus_normalisieren("unbekannt"))
 
     def test_material_eintragen_legt_neuen_standort_an(self):
         baustellen = beispiel_baustellen()
@@ -203,6 +213,23 @@ class MaterialLogikTests(unittest.TestCase):
         self.assertIn("Berlin", baustellen)
         self.assertNotIn("Bielefeld", baustellen)
 
+    def test_baustelle_anlegen(self):
+        baustellen = beispiel_baustellen()
+
+        erfolgreich, meldung = baustelle_anlegen(baustellen, "Berlin")
+
+        self.assertTrue(erfolgreich)
+        self.assertEqual(meldung, "Baustelle angelegt")
+        self.assertEqual(baustellen["Berlin"], {"Typ": "Baustelle", "Material": {}})
+
+    def test_baustelle_anlegen_verhindert_doppelten_namen(self):
+        baustellen = beispiel_baustellen()
+
+        erfolgreich, meldung = baustelle_anlegen(baustellen, "Bielefeld")
+
+        self.assertFalse(erfolgreich)
+        self.assertEqual(meldung, "Dieser Baustellenname existiert bereits")
+
     def test_baustelle_umbenennen_verhindert_doppelten_namen(self):
         baustellen = beispiel_baustellen()
 
@@ -302,6 +329,40 @@ class MaterialLogikTests(unittest.TestCase):
         self.assertEqual(meldung, "Bitte gib eine Menge größer als 0 ein")
         self.assertIsNone(bestellanfrage)
         self.assertEqual(bestellanfragen, [])
+
+    def test_bestellanfrage_status_aendern(self):
+        bestellanfragen = [{"id": 3, "status": "offen"}]
+
+        erfolgreich, meldung, bestellanfrage = bestellanfrage_status_aendern(
+            bestellanfragen, 3, BESTELLSTATUS_BESTELLT
+        )
+
+        self.assertTrue(erfolgreich)
+        self.assertEqual(meldung, "Bestellstatus geaendert")
+        self.assertEqual(bestellanfrage["status"], BESTELLSTATUS_BESTELLT)
+        self.assertEqual(bestellanfragen[0]["status"], BESTELLSTATUS_BESTELLT)
+
+    def test_bestellanfrage_status_aendern_lehnt_unbekannte_id_ab(self):
+        bestellanfragen = [{"id": 3, "status": "offen"}]
+
+        erfolgreich, meldung, bestellanfrage = bestellanfrage_status_aendern(
+            bestellanfragen, 9, BESTELLSTATUS_BESTELLT
+        )
+
+        self.assertFalse(erfolgreich)
+        self.assertEqual(meldung, "Bestellanfrage nicht gefunden")
+        self.assertIsNone(bestellanfrage)
+
+    def test_bestellanfrage_status_aendern_lehnt_ungueltigen_status_ab(self):
+        bestellanfragen = [{"id": 3, "status": "offen"}]
+
+        erfolgreich, meldung, bestellanfrage = bestellanfrage_status_aendern(
+            bestellanfragen, 3, "unbekannt"
+        )
+
+        self.assertFalse(erfolgreich)
+        self.assertEqual(meldung, "Bestellstatus ist ungueltig")
+        self.assertIsNone(bestellanfrage)
 
 
 if __name__ == "__main__":

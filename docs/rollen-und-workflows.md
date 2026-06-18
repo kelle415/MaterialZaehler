@@ -17,7 +17,7 @@ in wiederverwendbaren Modulen.
 Aktueller Ansatz:
 
 - `materialZaehler.py`: Einstieg fuer die Baustelle
-- spaeter `buero_panel.py`: Einstieg fuer Buero, Bestellung und Verwaltung
+- `buero_panel.py`: Einstieg fuer Buero, Bestellung und Verwaltung
 - gemeinsame Module fuer beide Einstiege:
   - `material_logik.py`
   - `datenspeicher.py`
@@ -135,16 +135,16 @@ nicht mit Buero- oder Admin-Funktionen ueberladen werden.
 
 ### Buero-Panel
 
-Geplanter Einstieg:
+Bestehender Einstieg:
 
 ```powershell
 python buero_panel.py
 ```
 
-Das Buero-Panel soll zunaechst ebenfalls eine CLI sein. Es kann spaeter durch
-eine Weboberflaeche oder GUI ersetzt werden, ohne die Fachlogik neu zu schreiben.
+Das Buero-Panel ist zunaechst ebenfalls eine CLI. Es kann spaeter durch eine
+Weboberflaeche oder GUI ersetzt werden, ohne die Fachlogik neu zu schreiben.
 
-Erste sinnvolle Funktionen:
+Aktuelle Kernfunktionen:
 
 1. Bestellanfragen anzeigen
 2. Bestellanfrage-Status aendern

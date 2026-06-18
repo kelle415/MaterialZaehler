@@ -53,17 +53,34 @@ python -m venv .venv
 
 ## Anwendung starten
 
+Baustellen-CLI:
+
 ```powershell
 python materialZaehler.py
 ```
 
-Nach dem Start fuehrt das Hauptmenue durch die vorhandenen Funktionen:
+Nach dem Start fuehrt das Baustellen-Hauptmenue durch die vorhandenen Funktionen:
 
 1. Material eintragen
 2. Material Liste anzeigen
 3. Material aendern
 4. Lager anzeigen
 5. Material bestellen
+6. Beenden
+
+Buero-Panel:
+
+```powershell
+python buero_panel.py
+```
+
+Das Buero-Panel ist fuer organisatorische Aufgaben vorgesehen:
+
+1. Bestellanfragen anzeigen
+2. Bestellanfrage Status aendern
+3. Baustellen anzeigen
+4. Baustelle anlegen
+5. Baustelle umbenennen
 6. Beenden
 
 ## Materialbuchungen
@@ -150,6 +167,7 @@ Beispiel fuer eine Bestellanfrage:
 ```text
 MaterialZaehler/
 |-- materialZaehler.py              # CLI, Menues und Benutzereingaben
+|-- buero_panel.py                  # CLI fuer Buero- und Verwaltungsaufgaben
 |-- cli_helpers.py                  # Wiederverwendbare CLI-Eingabehelfer
 |-- material_logik.py               # Fachlogik fuer Material, Baustellen, Suche
 |-- datenspeicher.py                # Laden und Speichern der JSON-Dateien
@@ -160,6 +178,7 @@ MaterialZaehler/
 `-- tests/
     |-- test_material_logik.py
     |-- test_material_zaehler_helpers.py
+    |-- test_buero_panel.py
     `-- test_datenspeicher.py
 ```
 

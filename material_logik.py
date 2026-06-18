@@ -7,6 +7,18 @@ FIRMENLAGER_NAME = "Firmenlager"
 BUCHUNGSART_ZUGANG = "zugang"
 BUCHUNGSART_ABGANG = "abgang"
 BUCHUNGSART_KORREKTUR = "korrektur"
+BESTELLSTATUS_OFFEN = "offen"
+BESTELLSTATUS_BESTELLT = "bestellt"
+BESTELLSTATUS_GELIEFERT = "geliefert"
+BESTELLSTATUS_ABGESCHLOSSEN = "abgeschlossen"
+BESTELLSTATUS_STORNIERT = "storniert"
+BESTELLSTATUS_WERTE = (
+    BESTELLSTATUS_OFFEN,
+    BESTELLSTATUS_BESTELLT,
+    BESTELLSTATUS_GELIEFERT,
+    BESTELLSTATUS_ABGESCHLOSSEN,
+    BESTELLSTATUS_STORNIERT,
+)
 
 
 def ist_standort(eintrag):
@@ -34,6 +46,23 @@ def buchungsart_normalisieren(eingabe):
     if buchungsart in ("3", "korrektur", "korrigieren", "setzen"):
         return BUCHUNGSART_KORREKTUR
     return None
+
+
+def bestellstatus_normalisieren(eingabe):
+    status = text_normalisieren(eingabe)
+    status_mapping = {
+        "1": BESTELLSTATUS_OFFEN,
+        BESTELLSTATUS_OFFEN: BESTELLSTATUS_OFFEN,
+        "2": BESTELLSTATUS_BESTELLT,
+        BESTELLSTATUS_BESTELLT: BESTELLSTATUS_BESTELLT,
+        "3": BESTELLSTATUS_GELIEFERT,
+        BESTELLSTATUS_GELIEFERT: BESTELLSTATUS_GELIEFERT,
+        "4": BESTELLSTATUS_ABGESCHLOSSEN,
+        BESTELLSTATUS_ABGESCHLOSSEN: BESTELLSTATUS_ABGESCHLOSSEN,
+        "5": BESTELLSTATUS_STORNIERT,
+        BESTELLSTATUS_STORNIERT: BESTELLSTATUS_STORNIERT,
+    }
+    return status_mapping.get(status)
 
 
 def bewegung_erstellen(buchungsart, menge, einheit, bestand_vorher, bestand_nachher):
@@ -89,6 +118,16 @@ def lager_sicherstellen(baustellen_liste):
         geaendert = True
 
     return geaendert
+
+
+def baustelle_anlegen(baustellen_liste, baustellen_name):
+    if not str(baustellen_name).strip():
+        return False, "Bitte gib einen Baustellennamen ein"
+    if baustellen_name in baustellen_liste:
+        return False, "Dieser Baustellenname existiert bereits"
+
+    baustellen_liste[baustellen_name] = {"Typ": "Baustelle", "Material": {}}
+    return True, "Baustelle angelegt"
 
 
 def materialien_fuer_baustelle(baustellen_liste, baustellen_name):
@@ -288,3 +327,27 @@ def bestellanfrage_erstellen(
     }
     bestellanfragen_liste.append(bestellanfrage)
     return True, "Bestellanfrage gespeichert", bestellanfrage
+
+
+def bestellanfrage_finden(bestellanfragen_liste, bestell_id):
+    for bestellanfrage in bestellanfragen_liste:
+        if not isinstance(bestellanfrage, dict):
+            continue
+        if bestellanfrage.get("id") == bestell_id:
+            return bestellanfrage
+    return None
+
+
+def bestellanfrage_status_aendern(
+    bestellanfragen_liste, bestell_id, neuer_status
+):
+    neuer_status = bestellstatus_normalisieren(neuer_status)
+    if neuer_status is None:
+        return False, "Bestellstatus ist ungueltig", None
+
+    bestellanfrage = bestellanfrage_finden(bestellanfragen_liste, bestell_id)
+    if bestellanfrage is None:
+        return False, "Bestellanfrage nicht gefunden", None
+
+    bestellanfrage["status"] = neuer_status
+    return True, "Bestellstatus geaendert", bestellanfrage
