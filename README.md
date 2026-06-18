@@ -39,7 +39,10 @@ Fachlogik neu zu schreiben.
 - Python 3.10 oder neuer
 - Git
 
-Es werden aktuell keine externen Python-Pakete benoetigt.
+Fuer die Anwendung selbst werden aktuell keine externen Python-Pakete benoetigt.
+Fuer Entwicklung und Tests werden die in den Checkbefehlen genannten Werkzeuge
+benoetigt, zum Beispiel `pytest`, `ruff`, `mypy`, `hypothesis`, `pytest-cov` und
+`bandit`.
 
 ## Installation
 
@@ -322,7 +325,7 @@ MaterialZaehler/
 ## Tests ausfuehren
 
 ```powershell
-python -m unittest discover -s tests
+python -m pytest
 ```
 
 Die Tests decken unter anderem ab:
@@ -341,6 +344,15 @@ Die Tests decken unter anderem ab:
 - Baustellen-Vorschlaege bei Tippfehlern
 - CLI-Helfer fuer Eingaben
 
+Die Entwicklungswerkzeuge sind in `pyproject.toml` konfiguriert. Fuer einen
+vollstaendigen lokalen Checklauf:
+
+```powershell
+python -m ruff check .
+python -m mypy .
+python -m pytest
+python -m bandit -r .
+```
 
 ## Bekannte Einschraenkungen
 
@@ -363,10 +375,13 @@ Die Tests decken unter anderem ab:
 
 ## Entwicklungsstandard
 
-Vor jedem Commit sollten die Tests ausgefuehrt werden:
+Vor jedem Commit sollten die Qualitaetschecks ausgefuehrt werden:
 
 ```powershell
-python -m unittest discover -s tests
+python -m ruff check .
+python -m mypy .
+python -m pytest
+python -m bandit -r .
 ```
 
 Neue Features sollten mindestens einen Test fuer die Fachlogik enthalten. Wenn
