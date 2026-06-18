@@ -150,6 +150,7 @@ Beispiel fuer eine Bestellanfrage:
 ```text
 MaterialZaehler/
 |-- materialZaehler.py              # CLI, Menues und Benutzereingaben
+|-- cli_helpers.py                  # Wiederverwendbare CLI-Eingabehelfer
 |-- material_logik.py               # Fachlogik fuer Material, Baustellen, Suche
 |-- datenspeicher.py                # Laden und Speichern der JSON-Dateien
 |-- baustellenListe.json            # Aktuelle Baustellen- und Materialdaten

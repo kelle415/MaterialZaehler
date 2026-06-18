@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from materialZaehler import (
+from cli_helpers import (
     baustelleAbfragen,
     baustellenNamenAenderungAbfragen,
     bestellDatenAbfragen,
@@ -9,9 +9,9 @@ from materialZaehler import (
     ganzzahlAbfragen,
     istJa,
     istNein,
-    materialEintragen,
     textAbfragen,
 )
+from materialZaehler import materialEintragen
 
 
 class MaterialZaehlerHelperTests(unittest.TestCase):
