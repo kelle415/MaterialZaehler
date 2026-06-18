@@ -14,7 +14,10 @@ Fachlogik und Datenspeicherung getrennt weiterentwickelt werden koennen.
 - Baustellen umbenennen
 - Firmenlager automatisch sicherstellen und anzeigen
 - Bestellanfragen erfassen und anzeigen
+- Bestellanfragen mit Statushistorie und Begruendung bearbeiten
+- Gelieferte Bestellanfragen bewusst als Wareneingang buchen
 - Materialbewegungen im Materialeintrag protokollieren
+- Materialbewegungen im Buero-Panel anzeigen
 - Tippfehler-Abgleich fuer Baustellen- und Standortnamen
 - Automatisierte Tests fuer Fachlogik, Datenspeicherung und Eingabehelfer
 
@@ -81,7 +84,8 @@ Das Buero-Panel ist fuer organisatorische Aufgaben vorgesehen:
 3. Baustellen anzeigen
 4. Baustelle anlegen
 5. Baustelle umbenennen
-6. Beenden
+6. Materialbewegungen anzeigen
+7. Beenden
 
 ## Materialbuchungen
 
@@ -98,6 +102,25 @@ Eine Korrektur darf den Bestand auch auf 0 setzen.
 
 Bei vorhandenem Material muss die eingegebene Einheit zur gespeicherten Einheit
 passen. Dadurch werden versehentliche Mischungen wie `kg` und `Stk` verhindert.
+
+## Bestellanfragen und Wareneingang
+
+Bestellanfragen haben einen Status und eine `statusHistorie`. Jeder
+Statuswechsel speichert den alten Status, den neuen Status, den Zeitpunkt und
+den angegebenen Grund.
+
+Wenn eine Bestellanfrage im Buero-Panel auf `geliefert` gesetzt wird, fragt das
+Programm bewusst nach, ob der Wareneingang jetzt in den Zielbestand gebucht
+werden soll. Bei Bestaetigung wird ein Materialzugang am Zielstandort angelegt
+und die Materialbewegung bekommt eine Referenz auf die Bestellanfrage.
+
+## Materialbewegungen
+
+Materialbewegungen werden pro Material gespeichert und im Buero-Panel
+standortuebergreifend angezeigt. Die Anzeige enthaelt Zeitpunkt, Standort,
+Material, Buchungsart, Menge, Einheit sowie Bestand vorher und nachher. Wenn
+eine Bewegung aus einem Wareneingang stammt, wird die Bestellanfrage als Referenz
+angezeigt.
 
 ## Baustellen-Suche und Tippfehler-Abgleich
 
@@ -140,7 +163,9 @@ Beispiel fuer eine Baustelle:
             "Einheit": "kg",
             "BestandVorher": 0,
             "BestandNachher": 200,
-            "Zeitpunkt": "2026-06-18T09:00:00+00:00"
+            "Zeitpunkt": "2026-06-18T09:00:00+00:00",
+            "Referenz": "Bestellanfrage #1",
+            "Notiz": "Wareneingang"
           }
         ]
       }
@@ -158,7 +183,29 @@ Beispiel fuer eine Bestellanfrage:
   "material": "Zement",
   "menge": 20,
   "einheit": "kg",
-  "status": "offen"
+  "status": "geliefert",
+  "statusHistorie": [
+    {
+      "von": null,
+      "zu": "offen",
+      "zeitpunkt": "2026-06-18T08:00:00+00:00",
+      "grund": "Bestellanfrage erstellt"
+    },
+    {
+      "von": "offen",
+      "zu": "geliefert",
+      "zeitpunkt": "2026-06-18T09:00:00+00:00",
+      "grund": "Lieferung angekommen"
+    }
+  ],
+  "wareneingang": {
+    "gebucht": true,
+    "zeitpunkt": "2026-06-18T09:00:00+00:00",
+    "ziel": "Bielefeld",
+    "material": "Zement",
+    "menge": 20,
+    "einheit": "kg"
+  }
 }
 ```
 
@@ -200,6 +247,8 @@ Die Tests decken unter anderem ab:
 - Baustellen und Material umbenennen
 - Mengen und Einheiten aendern
 - Bestellanfragen erstellen
+- Bestellanfragen mit Statushistorie und Wareneingang buchen
+- Materialbewegungen sammeln und im Buero-Panel anzeigen
 - JSON-Daten laden und speichern
 - Baustellen-Vorschlaege bei Tippfehlern
 - CLI-Helfer fuer Eingaben
@@ -209,14 +258,14 @@ Die Tests decken unter anderem ab:
 
 - Keine gleichzeitige Bearbeitung durch mehrere Benutzer
 - Keine Zugriffskontrolle oder Benutzerrollen
-- Keine Auswertung oder Filterung der Materialbewegungen
+- Noch keine Filter oder Auswertungen fuer Materialbewegungen
 - Keine Validierung gegen zentrale Artikel- oder Baustellenstammdaten
 - JSON-Dateien sind fuer produktive Mehrbenutzer-Szenarien nur begrenzt geeignet
 
 ## Naechste sinnvolle Erweiterungen
 
-- Materialbewegungen anzeigen und auswerten
-- Bestellanfragen mit Statuswechseln erweitern
+- Materialbewegungen filtern und auswerten
+- Chef-Uebersicht fuer Gesamtbestand, offene Bestellungen und kritische Bestaende
 - Import und Export fuer CSV oder Excel
 - Datenbankanbindung vorbereiten
 - API-Schicht ergaenzen

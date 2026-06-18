@@ -13,11 +13,13 @@ from material_logik import (
     baustellen_vorschlaege,
     bestellanfrage_erstellen,
     bestellanfrage_status_aendern,
+    bestellanfrage_wareneingang_buchen,
     bestellstatus_normalisieren,
     buchungsart_normalisieren,
     einheit_aendern,
     lager_sicherstellen,
     material_eintragen,
+    materialbewegungen_sammeln,
     material_namen,
     material_umbenennen,
     materialien_fuer_baustelle,
@@ -119,6 +121,72 @@ class MaterialLogikTests(unittest.TestCase):
         self.assertEqual(bewegung["Art"], BUCHUNGSART_ZUGANG)
         self.assertEqual(bewegung["BestandVorher"], 200)
         self.assertEqual(bewegung["BestandNachher"], 250)
+
+    def test_material_eintragen_speichert_referenz_und_notiz(self):
+        baustellen = beispiel_baustellen()
+
+        erfolgreich, meldung = material_eintragen(
+            baustellen,
+            "Bielefeld",
+            "Zement",
+            50,
+            "kg",
+            BUCHUNGSART_ZUGANG,
+            referenz="Bestellanfrage #8",
+            notiz="Wareneingang",
+        )
+
+        self.assertTrue(erfolgreich)
+        self.assertEqual(meldung, "Materialbuchung gespeichert")
+        bewegung = baustellen["Bielefeld"]["Material"]["Zement"]["Bewegungen"][0]
+        self.assertEqual(bewegung["Referenz"], "Bestellanfrage #8")
+        self.assertEqual(bewegung["Notiz"], "Wareneingang")
+
+    def test_materialbewegungen_sammeln_sortiert_und_ergaenzt_kontext(self):
+        baustellen = {
+            "Bielefeld": {
+                "Material": {
+                    "Zement": {
+                        "Menge": 20,
+                        "Einheit": "kg",
+                        "Bewegungen": [
+                            {
+                                "Art": "zugang",
+                                "Menge": 20,
+                                "Einheit": "kg",
+                                "BestandVorher": 0,
+                                "BestandNachher": 20,
+                                "Zeitpunkt": "2026-01-01T10:00:00+00:00",
+                            }
+                        ],
+                    }
+                }
+            },
+            "Hamburg": {
+                "Material": {
+                    "Holz": {
+                        "Menge": 5,
+                        "Einheit": "stk",
+                        "Bewegungen": [
+                            {
+                                "Art": "abgang",
+                                "Menge": 2,
+                                "Einheit": "stk",
+                                "BestandVorher": 7,
+                                "BestandNachher": 5,
+                                "Zeitpunkt": "2026-01-02T10:00:00+00:00",
+                            }
+                        ],
+                    }
+                }
+            },
+        }
+
+        bewegungen = materialbewegungen_sammeln(baustellen, limit=1)
+
+        self.assertEqual(len(bewegungen), 1)
+        self.assertEqual(bewegungen[0]["Standort"], "Hamburg")
+        self.assertEqual(bewegungen[0]["Material"], "Holz")
 
     def test_material_eintragen_zieht_abgang_ab(self):
         baustellen = beispiel_baustellen()
@@ -316,6 +384,11 @@ class MaterialLogikTests(unittest.TestCase):
         self.assertEqual(meldung, "Bestellanfrage gespeichert")
         self.assertEqual(bestellanfrage["id"], 5)
         self.assertEqual(bestellanfrage["status"], "offen")
+        self.assertEqual(bestellanfrage["statusHistorie"][0]["von"], None)
+        self.assertEqual(bestellanfrage["statusHistorie"][0]["zu"], "offen")
+        self.assertEqual(
+            bestellanfrage["statusHistorie"][0]["grund"], "Bestellanfrage erstellt"
+        )
         self.assertEqual(bestellanfragen[-1], bestellanfrage)
 
     def test_bestellanfrage_erstellen_lehnt_ungueltige_menge_ab(self):
@@ -334,13 +407,74 @@ class MaterialLogikTests(unittest.TestCase):
         bestellanfragen = [{"id": 3, "status": "offen"}]
 
         erfolgreich, meldung, bestellanfrage = bestellanfrage_status_aendern(
-            bestellanfragen, 3, BESTELLSTATUS_BESTELLT
+            bestellanfragen, 3, BESTELLSTATUS_BESTELLT, "Beim Lieferanten bestellt"
         )
 
         self.assertTrue(erfolgreich)
         self.assertEqual(meldung, "Bestellstatus geaendert")
         self.assertEqual(bestellanfrage["status"], BESTELLSTATUS_BESTELLT)
         self.assertEqual(bestellanfragen[0]["status"], BESTELLSTATUS_BESTELLT)
+        self.assertEqual(bestellanfrage["statusHistorie"][0]["von"], "offen")
+        self.assertEqual(bestellanfrage["statusHistorie"][0]["zu"], "bestellt")
+        self.assertEqual(
+            bestellanfrage["statusHistorie"][0]["grund"],
+            "Beim Lieferanten bestellt",
+        )
+
+    def test_bestellanfrage_wareneingang_bucht_material_und_status(self):
+        baustellen = beispiel_baustellen()
+        bestellanfragen = [
+            {
+                "id": 7,
+                "ziel": "Bielefeld",
+                "material": "Zement",
+                "menge": 50,
+                "einheit": "kg",
+                "status": BESTELLSTATUS_BESTELLT,
+            }
+        ]
+
+        erfolgreich, meldung, bestellanfrage = bestellanfrage_wareneingang_buchen(
+            bestellanfragen, baustellen, 7, "Lieferung angekommen"
+        )
+
+        self.assertTrue(erfolgreich)
+        self.assertEqual(meldung, "Wareneingang gebucht und Bestellstatus geaendert")
+        self.assertEqual(bestellanfrage["status"], BESTELLSTATUS_GELIEFERT)
+        self.assertTrue(bestellanfrage["wareneingang"]["gebucht"])
+        self.assertEqual(baustellen["Bielefeld"]["Material"]["Zement"]["Menge"], 250)
+        bewegung = baustellen["Bielefeld"]["Material"]["Zement"]["Bewegungen"][0]
+        self.assertEqual(bewegung["Art"], BUCHUNGSART_ZUGANG)
+        self.assertEqual(bewegung["Referenz"], "Bestellanfrage #7")
+        self.assertEqual(bewegung["Notiz"], "Wareneingang")
+        self.assertEqual(bestellanfrage["statusHistorie"][0]["von"], "bestellt")
+        self.assertEqual(bestellanfrage["statusHistorie"][0]["zu"], "geliefert")
+        self.assertEqual(
+            bestellanfrage["statusHistorie"][0]["grund"], "Lieferung angekommen"
+        )
+
+    def test_bestellanfrage_wareneingang_verhindert_doppelte_buchung(self):
+        baustellen = beispiel_baustellen()
+        bestellanfragen = [
+            {
+                "id": 7,
+                "ziel": "Bielefeld",
+                "material": "Zement",
+                "menge": 50,
+                "einheit": "kg",
+                "status": BESTELLSTATUS_GELIEFERT,
+                "wareneingang": {"gebucht": True},
+            }
+        ]
+
+        erfolgreich, meldung, bestellanfrage = bestellanfrage_wareneingang_buchen(
+            bestellanfragen, baustellen, 7, "Noch einmal geliefert"
+        )
+
+        self.assertFalse(erfolgreich)
+        self.assertEqual(meldung, "Wareneingang wurde bereits gebucht")
+        self.assertIsNone(bestellanfrage)
+        self.assertEqual(baustellen["Bielefeld"]["Material"]["Zement"]["Menge"], 200)
 
     def test_bestellanfrage_status_aendern_lehnt_unbekannte_id_ab(self):
         bestellanfragen = [{"id": 3, "status": "offen"}]

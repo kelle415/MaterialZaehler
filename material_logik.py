@@ -21,6 +21,10 @@ BESTELLSTATUS_WERTE = (
 )
 
 
+def zeitpunkt_utc():
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
 def ist_standort(eintrag):
     return isinstance(eintrag, dict) and "Material" in eintrag
 
@@ -65,16 +69,28 @@ def bestellstatus_normalisieren(eingabe):
     return status_mapping.get(status)
 
 
-def bewegung_erstellen(buchungsart, menge, einheit, bestand_vorher, bestand_nachher):
-    zeitpunkt = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-    return {
+def bewegung_erstellen(
+    buchungsart,
+    menge,
+    einheit,
+    bestand_vorher,
+    bestand_nachher,
+    referenz=None,
+    notiz=None,
+):
+    bewegung = {
         "Art": buchungsart,
         "Menge": menge,
         "Einheit": einheit,
         "BestandVorher": bestand_vorher,
         "BestandNachher": bestand_nachher,
-        "Zeitpunkt": zeitpunkt,
+        "Zeitpunkt": zeitpunkt_utc(),
     }
+    if referenz:
+        bewegung["Referenz"] = referenz
+    if notiz:
+        bewegung["Notiz"] = notiz
+    return bewegung
 
 
 def einheiten_stimmen_ueberein(einheit, vorhandene_einheit):
@@ -165,6 +181,8 @@ def material_eintragen(
     menge,
     einheit,
     buchungsart=BUCHUNGSART_ZUGANG,
+    referenz=None,
+    notiz=None,
 ):
     buchungsart = buchungsart_normalisieren(buchungsart)
     if buchungsart is None:
@@ -196,7 +214,13 @@ def material_eintragen(
             "Einheit": einheit,
             "Bewegungen": [
                 bewegung_erstellen(
-                    buchungsart, menge, einheit, bestand_vorher, bestand_nachher
+                    buchungsart,
+                    menge,
+                    einheit,
+                    bestand_vorher,
+                    bestand_nachher,
+                    referenz,
+                    notiz,
                 )
             ],
         }
@@ -231,10 +255,53 @@ def material_eintragen(
     material["Einheit"] = vorhandene_einheit
     bewegungen.append(
         bewegung_erstellen(
-            buchungsart, menge, vorhandene_einheit, bestand_vorher, bestand_nachher
+            buchungsart,
+            menge,
+            vorhandene_einheit,
+            bestand_vorher,
+            bestand_nachher,
+            referenz,
+            notiz,
         )
     )
     return True, "Materialbuchung gespeichert"
+
+
+def materialbewegungen_sammeln(baustellen_liste, baustellen_name=None, limit=None):
+    if baustellen_name is None:
+        standort_namen = baustellen_namen(baustellen_liste)
+    else:
+        standort_namen = [baustellen_name]
+
+    alle_bewegungen = []
+    for standort_name in standort_namen:
+        materialien = materialien_fuer_baustelle(baustellen_liste, standort_name)
+        if not isinstance(materialien, dict):
+            continue
+
+        for material_name, material in materialien.items():
+            if not isinstance(material, dict):
+                continue
+
+            bewegungen = material.get("Bewegungen", [])
+            if not isinstance(bewegungen, list):
+                continue
+
+            for bewegung in bewegungen:
+                if not isinstance(bewegung, dict):
+                    continue
+
+                eintrag = dict(bewegung)
+                eintrag["Standort"] = standort_name
+                eintrag["Material"] = material_name
+                alle_bewegungen.append(eintrag)
+
+    alle_bewegungen.sort(
+        key=lambda bewegung: bewegung.get("Zeitpunkt") or "", reverse=True
+    )
+    if limit is not None:
+        return alle_bewegungen[:limit]
+    return alle_bewegungen
 
 
 def baustelle_umbenennen(baustellen_liste, alter_name, neuer_name):
@@ -305,6 +372,23 @@ def naechste_bestellanfrage_id(bestellanfragen_liste):
     return hoechste_id + 1
 
 
+def statushistorie_eintrag_erstellen(von_status, zu_status, grund):
+    grund = str(grund or "Nicht angegeben").strip() or "Nicht angegeben"
+    return {
+        "von": von_status,
+        "zu": zu_status,
+        "zeitpunkt": zeitpunkt_utc(),
+        "grund": grund,
+    }
+
+
+def statushistorie_sicherstellen(bestellanfrage):
+    historie = bestellanfrage.setdefault("statusHistorie", [])
+    if not isinstance(historie, list):
+        return None
+    return historie
+
+
 def bestellanfrage_erstellen(
     bestellanfragen_liste, ziel, material_name, menge, einheit
 ):
@@ -323,7 +407,12 @@ def bestellanfrage_erstellen(
         "material": material_name,
         "menge": menge,
         "einheit": einheit,
-        "status": "offen",
+        "status": BESTELLSTATUS_OFFEN,
+        "statusHistorie": [
+            statushistorie_eintrag_erstellen(
+                None, BESTELLSTATUS_OFFEN, "Bestellanfrage erstellt"
+            )
+        ],
     }
     bestellanfragen_liste.append(bestellanfrage)
     return True, "Bestellanfrage gespeichert", bestellanfrage
@@ -339,7 +428,7 @@ def bestellanfrage_finden(bestellanfragen_liste, bestell_id):
 
 
 def bestellanfrage_status_aendern(
-    bestellanfragen_liste, bestell_id, neuer_status
+    bestellanfragen_liste, bestell_id, neuer_status, grund=None
 ):
     neuer_status = bestellstatus_normalisieren(neuer_status)
     if neuer_status is None:
@@ -349,5 +438,75 @@ def bestellanfrage_status_aendern(
     if bestellanfrage is None:
         return False, "Bestellanfrage nicht gefunden", None
 
+    historie = statushistorie_sicherstellen(bestellanfrage)
+    if historie is None:
+        return False, "Statushistorie ist ungueltig", None
+
+    alter_status = bestellanfrage.get("status")
     bestellanfrage["status"] = neuer_status
+    historie.append(statushistorie_eintrag_erstellen(alter_status, neuer_status, grund))
     return True, "Bestellstatus geaendert", bestellanfrage
+
+
+def bestellanfrage_wareneingang_buchen(
+    bestellanfragen_liste, baustellen_liste, bestell_id, grund=None
+):
+    bestellanfrage = bestellanfrage_finden(bestellanfragen_liste, bestell_id)
+    if bestellanfrage is None:
+        return False, "Bestellanfrage nicht gefunden", None
+
+    if bestellanfrage.get("status") == BESTELLSTATUS_STORNIERT:
+        return False, "Stornierte Bestellanfragen koennen nicht geliefert werden", None
+
+    wareneingang = bestellanfrage.get("wareneingang")
+    if isinstance(wareneingang, dict) and wareneingang.get("gebucht"):
+        return False, "Wareneingang wurde bereits gebucht", None
+
+    historie = statushistorie_sicherstellen(bestellanfrage)
+    if historie is None:
+        return False, "Statushistorie ist ungueltig", None
+
+    ziel = bestellanfrage.get("ziel")
+    material_name = bestellanfrage.get("material")
+    menge = bestellanfrage.get("menge")
+    einheit = bestellanfrage.get("einheit")
+    if (
+        not ziel
+        or not material_name
+        or not isinstance(menge, int)
+        or menge <= 0
+        or not einheit
+    ):
+        return False, "Bestellanfrage ist unvollstaendig", None
+
+    erfolgreich, meldung = material_eintragen(
+        baustellen_liste,
+        ziel,
+        material_name,
+        menge,
+        einheit,
+        BUCHUNGSART_ZUGANG,
+        referenz=f"Bestellanfrage #{bestell_id}",
+        notiz="Wareneingang",
+    )
+    if not erfolgreich:
+        return False, f"Wareneingang nicht gebucht: {meldung}", None
+
+    alter_status = bestellanfrage.get("status")
+    bestellanfrage["status"] = BESTELLSTATUS_GELIEFERT
+    historie.append(
+        statushistorie_eintrag_erstellen(
+            alter_status,
+            BESTELLSTATUS_GELIEFERT,
+            grund or "Wareneingang gebucht",
+        )
+    )
+    bestellanfrage["wareneingang"] = {
+        "gebucht": True,
+        "zeitpunkt": zeitpunkt_utc(),
+        "ziel": ziel,
+        "material": material_name,
+        "menge": menge,
+        "einheit": einheit,
+    }
+    return True, "Wareneingang gebucht und Bestellstatus geaendert", bestellanfrage

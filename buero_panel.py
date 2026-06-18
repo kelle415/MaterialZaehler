@@ -19,13 +19,16 @@ from datenspeicher import (
     bestellanfragen_speichern,
 )
 from material_logik import (
+    BESTELLSTATUS_GELIEFERT,
     BESTELLSTATUS_WERTE,
     baustelle_anlegen,
     baustelle_umbenennen,
     baustellen_namen,
     bestellanfrage_status_aendern,
+    bestellanfrage_wareneingang_buchen,
     bestellstatus_normalisieren,
     lager_sicherstellen,
+    materialbewegungen_sammeln,
 )
 
 
@@ -45,6 +48,17 @@ def bestellanfragenAnzeigen(bestellanfragenListe):
         einheit = bestellanfrage.get("einheit")
         status = bestellanfrage.get("status")
         print(f"- #{bestell_id}: {menge} {einheit} {material} fuer {ziel} ({status})")
+
+        historie = bestellanfrage.get("statusHistorie", [])
+        if historie:
+            letzter_eintrag = historie[-1]
+            zeitpunkt = letzter_eintrag.get("zeitpunkt")
+            grund = letzter_eintrag.get("grund")
+            print(f"  letzter Statuswechsel: {zeitpunkt} - {grund}")
+
+        wareneingang = bestellanfrage.get("wareneingang")
+        if isinstance(wareneingang, dict) and wareneingang.get("gebucht"):
+            print(f"  Wareneingang gebucht: {wareneingang.get('zeitpunkt')}")
     print("-" * 35, "\n")
 
 
@@ -75,21 +89,84 @@ def bestellstatusAbfragen():
         print("Bitte waehle einen gueltigen Bestellstatus.")
 
 
-def bestellanfrageStatusAendern(bestellanfragenListe):
+def bestellanfrageStatusAendern(bestellanfragenListe, baustellenListe=None):
     bestellanfragenAnzeigen(bestellanfragenListe)
     if not bestellanfragenListe:
         return False
 
     bestell_id = ganzzahlAbfragen("Welche Bestellnummer soll geaendert werden: ")
     neuer_status = bestellstatusAbfragen()
-    erfolgreich, meldung, _ = bestellanfrage_status_aendern(
-        bestellanfragenListe, bestell_id, neuer_status
+    grund = textAbfragen(
+        "Warum wird der Status geaendert: ",
+        "Bitte gib einen Grund fuer die Statusaenderung ein.",
     )
+
+    if neuer_status == BESTELLSTATUS_GELIEFERT:
+        if baustellenListe is None:
+            print("Wareneingang kann ohne Baustellendaten nicht gebucht werden.")
+            return False
+
+        print("Wareneingang jetzt in den Zielbestand buchen? (J/N)")
+        bestaetigung = input("Antwort: ")
+        if istNein(bestaetigung):
+            print("Statusaenderung abgebrochen.")
+            return False
+        if not istJa(bestaetigung):
+            print("unverwertbare eingabe")
+            return False
+
+        erfolgreich, meldung, _ = bestellanfrage_wareneingang_buchen(
+            bestellanfragenListe, baustellenListe, bestell_id, grund
+        )
+    else:
+        erfolgreich, meldung, _ = bestellanfrage_status_aendern(
+            bestellanfragenListe, bestell_id, neuer_status, grund
+        )
+
     print(meldung)
     if erfolgreich:
         bestellanfragen_speichern(bestellanfragenListe)
+        if neuer_status == BESTELLSTATUS_GELIEFERT:
+            baustellen_speichern(baustellenListe)
         bestellanfragenAnzeigen(bestellanfragenListe)
     return erfolgreich
+
+
+def materialbewegungenAnzeigen(baustellenListe, limit=20):
+    print("\n", "-" * 35)
+    print(" Materialbewegungen")
+    bewegungen = materialbewegungen_sammeln(baustellenListe, limit=limit)
+    if not bewegungen:
+        print("Keine Materialbewegungen vorhanden")
+        print("-" * 35, "\n")
+        return False
+
+    for bewegung in bewegungen:
+        zeitpunkt = bewegung.get("Zeitpunkt")
+        standort = bewegung.get("Standort")
+        material = bewegung.get("Material")
+        art = bewegung.get("Art")
+        menge = bewegung.get("Menge")
+        einheit = bewegung.get("Einheit")
+        vorher = bewegung.get("BestandVorher")
+        nachher = bewegung.get("BestandNachher")
+        zeile = (
+            f"- {zeitpunkt}: {standort} | {material} | "
+            f"{art} {menge} {einheit} ({vorher} -> {nachher})"
+        )
+
+        referenz = bewegung.get("Referenz")
+        if referenz:
+            zeile += f" | {referenz}"
+
+        notiz = bewegung.get("Notiz")
+        if notiz:
+            zeile += f" | {notiz}"
+
+        print(zeile)
+
+    print("-" * 35, "\n")
+    return True
 
 
 def baustelleAnlegen(baustellenListe):
@@ -133,20 +210,23 @@ def bueroMenue(baustellenListe, bestellanfragenListe):
             "\n 3. Baustellen anzeigen"
             "\n 4. Baustelle anlegen"
             "\n 5. Baustelle umbenennen"
-            "\n 6. Beenden"
+            "\n 6. Materialbewegungen anzeigen"
+            "\n 7. Beenden"
         )
         auswahl = input("\nAntwort: ").strip().lower()
         if auswahl in ("1", "bestellanfragen anzeigen", "anzeigen"):
             bestellanfragenAnzeigen(bestellanfragenListe)
         elif auswahl in ("2", "status aendern", "status ändern"):
-            bestellanfrageStatusAendern(bestellanfragenListe)
+            bestellanfrageStatusAendern(bestellanfragenListe, baustellenListe)
         elif auswahl in ("3", "baustellen anzeigen", "baustellen"):
             baustellenAnzeigen(baustellenListe)
         elif auswahl in ("4", "baustelle anlegen", "anlegen"):
             baustelleAnlegen(baustellenListe)
         elif auswahl in ("5", "baustelle umbenennen", "umbenennen"):
             baustelleUmbenennen(baustellenListe)
-        elif auswahl in ("6", "beenden"):
+        elif auswahl in ("6", "materialbewegungen anzeigen", "bewegungen"):
+            materialbewegungenAnzeigen(baustellenListe)
+        elif auswahl in ("7", "beenden"):
             baustellen_speichern(baustellenListe)
             bestellanfragen_speichern(bestellanfragenListe)
             print("Daten gespeichert. Auf wieder sehen")

@@ -55,8 +55,10 @@ Typische Aufgaben:
 - Bestellanfragen ansehen
 - Bestellanfragen bearbeiten
 - Bestellstatus aendern
+- Wareneingang aus gelieferten Bestellanfragen buchen
 - Baustellen anlegen, umbenennen oder stilllegen
 - organisatorische Materialdaten pflegen
+- Materialbewegungen anzeigen
 - offene Bedarfe ueberwachen
 
 Nicht im Fokus:
@@ -151,7 +153,8 @@ Aktuelle Kernfunktionen:
 3. Baustellen anzeigen
 4. Baustelle anlegen
 5. Baustelle umbenennen
-6. Zurueck oder beenden
+6. Materialbewegungen anzeigen
+7. Zurueck oder beenden
 
 ## Bestellanfragen im Zielbild
 
@@ -166,9 +169,9 @@ Sinnvolle Statuswerte:
 - `abgeschlossen`
 - `storniert`
 
-Eine gelieferte Bestellanfrage soll nicht automatisch den Bestand veraendern,
-solange keine klare Wareneingangslogik existiert. Die Materialbuchung sollte
-bewusst als Zugang erfolgen, damit Menge, Einheit und Ziel geprueft werden.
+Eine gelieferte Bestellanfrage wird im Buero-Panel bewusst als Wareneingang
+gebucht. Dabei entsteht ein Materialzugang am Zielstandort, und die
+Materialbewegung verweist auf die Bestellanfrage.
 
 ## Entwicklungsregeln fuer neue Features
 
@@ -190,6 +193,6 @@ bewusst als Zugang erfolgen, damit Menge, Einheit und Ziel geprueft werden.
 - Bleibt das Buero-Panel mittelfristig CLI oder wird es zuerst als Weboberflaeche
   gebaut?
 - Welche Funktionen darf die Chef-Rolle nur lesen und welche aktiv bearbeiten?
-- Wie wird ein Wareneingang aus einer Bestellanfrage sauber in eine
-  Materialbuchung ueberfuehrt?
+- Welche Filter und Auswertungen brauchen Materialbewegungen im Buero- und
+  Chef-Bereich?
 - Wann wird die JSON-Datenhaltung durch eine Datenbank ersetzt?
