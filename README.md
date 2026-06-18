@@ -154,11 +154,18 @@ MaterialZaehler/
 |-- datenspeicher.py                # Laden und Speichern der JSON-Dateien
 |-- baustellenListe.json            # Aktuelle Baustellen- und Materialdaten
 |-- bestellanfragen.json            # Aktuelle Bestellanfragen
+|-- docs/
+|   `-- rollen-und-workflows.md     # Rollen, Oberflaechen und Ziel-Workflows
 `-- tests/
     |-- test_material_logik.py
     |-- test_material_zaehler_helpers.py
     `-- test_datenspeicher.py
 ```
+
+## Weitere Dokumentation
+
+- `docs/rollen-und-workflows.md`: Zielbild fuer Rollen, Oberflaechen,
+  Zustaendigkeiten und kuenftige Workflows
 
 ## Tests ausfuehren
 
