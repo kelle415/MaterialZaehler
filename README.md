@@ -336,6 +336,7 @@ Die Tests decken unter anderem ab:
 - Chef-Uebersicht erstellen
 - Mitarbeiterbestand und Mitarbeiteranfragen verwalten
 - Materialbewegungen sammeln und im Buero-Panel anzeigen
+- rollenuebergreifende Nutzer-Workflows von Baustelle ueber Buero bis Chef
 - JSON-Daten laden und speichern
 - Baustellen-Vorschlaege bei Tippfehlern
 - CLI-Helfer fuer Eingaben
