@@ -201,6 +201,7 @@ def materialEintragen(baustellenListe, baustellenInput):
     print(meldung)
     if erfolgreich:
         baustellen_speichern(baustellenListe)
+        materialAnzeigen(baustellenListe, baustellenInput)
 
 
 def materialAnzeigen(baustellenListe, baustellenInput):

@@ -8,6 +8,7 @@ from materialZaehler import (
     ganzzahlAbfragen,
     istJa,
     istNein,
+    materialEintragen,
     textAbfragen,
 )
 
@@ -102,6 +103,20 @@ class MaterialZaehlerHelperTests(unittest.TestCase):
         self.assertEqual(geandert, "Berlin")
         self.assertEqual(sicherheitsfrage, "j")
         self.assertIsNone(materialname)
+
+    def test_material_eintragen_zeigt_aktualisierte_liste_an(self):
+        baustellen = {"Bielefeld": {"Material": {}}}
+
+        with patch("builtins.input", side_effect=["Zement", "5", "kg"]), patch(
+            "builtins.print"
+        ), patch("materialZaehler.baustellen_speichern") as speichern, patch(
+            "materialZaehler.materialAnzeigen"
+        ) as anzeigen:
+            materialEintragen(baustellen, "Bielefeld")
+
+        speichern.assert_called_once_with(baustellen)
+        anzeigen.assert_called_once_with(baustellen, "Bielefeld")
+        self.assertEqual(baustellen["Bielefeld"]["Material"]["Zement"]["Menge"], 5)
 
 
 if __name__ == "__main__":
