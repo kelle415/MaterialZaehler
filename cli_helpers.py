@@ -130,6 +130,28 @@ def bestellDatenAbfragen(baustellenListe):
     return ziel, materialname, materialmenge, materialeinheit
 
 
+def mitarbeiterAnfrageDatenAbfragen(baustellenListe):
+    ziel = baustelleAbfragen(
+        baustellenListe,
+        False,
+        "Fuer welche Baustelle werden mehr Mitarbeiter gebraucht: ",
+        "Bitte gib eine bekannte Baustelle ein.",
+    )
+    anzahl = ganzzahlAbfragen(
+        "Wie viele zusaetzliche Mitarbeiter werden gebraucht: ", minimum=1
+    )
+    rolle = textAbfragen(
+        "Welche Rolle oder welcher Einsatzbereich wird gebraucht: ",
+        "Bitte gib eine Rolle oder einen Einsatzbereich ein.",
+    )
+    grund = textAbfragen(
+        "Warum werden mehr Mitarbeiter gebraucht: ",
+        "Bitte gib einen Grund ein.",
+    )
+
+    return ziel, anzahl, rolle, grund
+
+
 def baustellenNamenAenderungAbfragen(baustellenListe):
     zuaendern = baustelleAbfragen(
         baustellenListe,

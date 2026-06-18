@@ -19,6 +19,14 @@ BESTELLSTATUS_WERTE = (
     BESTELLSTATUS_ABGESCHLOSSEN,
     BESTELLSTATUS_STORNIERT,
 )
+MITARBEITERANFRAGE_STATUS_OFFEN = "offen"
+MITARBEITERANFRAGE_STATUS_EINGEPLANT = "eingeplant"
+MITARBEITERANFRAGE_STATUS_ERLEDIGT = "erledigt"
+MITARBEITERANFRAGE_STATUS_STORNIERT = "storniert"
+MITARBEITERANFRAGE_OFFENE_STATUS = (
+    MITARBEITERANFRAGE_STATUS_OFFEN,
+    MITARBEITERANFRAGE_STATUS_EINGEPLANT,
+)
 
 
 def zeitpunkt_utc():
@@ -142,7 +150,11 @@ def baustelle_anlegen(baustellen_liste, baustellen_name):
     if baustellen_name in baustellen_liste:
         return False, "Dieser Baustellenname existiert bereits"
 
-    baustellen_liste[baustellen_name] = {"Typ": "Baustelle", "Material": {}}
+    baustellen_liste[baustellen_name] = {
+        "Typ": "Baustelle",
+        "Material": {},
+        "Mitarbeiter": {"Anzahl": 0, "Aktualisiert": zeitpunkt_utc()},
+    }
     return True, "Baustelle angelegt"
 
 
@@ -304,6 +316,153 @@ def materialbewegungen_sammeln(baustellen_liste, baustellen_name=None, limit=Non
     return alle_bewegungen
 
 
+def gesamtbestand_sammeln(baustellen_liste):
+    bestaende = {}
+    for standort_name in baustellen_namen(baustellen_liste):
+        materialien = materialien_fuer_baustelle(baustellen_liste, standort_name)
+        if not isinstance(materialien, dict):
+            continue
+
+        for material_name, material in materialien.items():
+            if not isinstance(material, dict):
+                continue
+
+            menge = material.get("Menge")
+            einheit = material.get("Einheit")
+            if not isinstance(menge, int) or not einheit:
+                continue
+
+            schluessel = (text_normalisieren(material_name), text_normalisieren(einheit))
+            if schluessel not in bestaende:
+                bestaende[schluessel] = {
+                    "Material": material_name,
+                    "Einheit": einheit,
+                    "Gesamtmenge": 0,
+                    "Standorte": [],
+                }
+
+            bestaende[schluessel]["Gesamtmenge"] += menge
+            bestaende[schluessel]["Standorte"].append(
+                {"Standort": standort_name, "Menge": menge}
+            )
+
+    return sorted(
+        bestaende.values(),
+        key=lambda bestand: (
+            text_normalisieren(bestand["Material"]),
+            text_normalisieren(bestand["Einheit"]),
+        ),
+    )
+
+
+def kritische_bestaende_sammeln(baustellen_liste):
+    kritische_bestaende = []
+    for standort_name in baustellen_namen(baustellen_liste):
+        materialien = materialien_fuer_baustelle(baustellen_liste, standort_name)
+        if not isinstance(materialien, dict):
+            continue
+
+        for material_name, material in materialien.items():
+            if not isinstance(material, dict):
+                continue
+
+            menge = material.get("Menge")
+            einheit = material.get("Einheit")
+            mindestbestand = material.get("Mindestbestand")
+            if not isinstance(menge, int):
+                continue
+
+            grund = None
+            if menge <= 0:
+                grund = "leer"
+            elif isinstance(mindestbestand, int) and menge <= mindestbestand:
+                grund = "unter Mindestbestand"
+
+            if grund:
+                kritische_bestaende.append(
+                    {
+                        "Standort": standort_name,
+                        "Material": material_name,
+                        "Menge": menge,
+                        "Einheit": einheit,
+                        "Mindestbestand": mindestbestand,
+                        "Grund": grund,
+                    }
+                )
+
+    return sorted(
+        kritische_bestaende,
+        key=lambda bestand: (
+            bestand["Standort"],
+            text_normalisieren(bestand["Material"]),
+        ),
+    )
+
+
+def offene_bestellanfragen_sammeln(bestellanfragen_liste):
+    offene_status = {BESTELLSTATUS_OFFEN, BESTELLSTATUS_BESTELLT}
+    return [
+        bestellanfrage
+        for bestellanfrage in bestellanfragen_liste
+        if isinstance(bestellanfrage, dict)
+        and bestellanfrage.get("status", BESTELLSTATUS_OFFEN) in offene_status
+    ]
+
+
+def mitarbeiterbestand_auslesen(standort):
+    mitarbeiter = standort.get("Mitarbeiter", 0)
+    if isinstance(mitarbeiter, int):
+        return {"Anzahl": mitarbeiter}
+    if isinstance(mitarbeiter, dict):
+        anzahl = mitarbeiter.get("Anzahl", 0)
+        if not isinstance(anzahl, int):
+            anzahl = 0
+        return {
+            "Anzahl": anzahl,
+            "Aktualisiert": mitarbeiter.get("Aktualisiert"),
+            "Notiz": mitarbeiter.get("Notiz"),
+        }
+    return {"Anzahl": 0}
+
+
+def mitarbeiterbestand_setzen(
+    baustellen_liste, baustellen_name, anzahl, notiz=None
+):
+    if not isinstance(anzahl, int):
+        return False, "Mitarbeiterzahl ist ungueltig"
+    if anzahl < 0:
+        return False, "Bitte gib eine Mitarbeiterzahl ab 0 ein"
+
+    standort = baustellen_liste.get(baustellen_name)
+    if not ist_standort(standort):
+        return False, "Baustelle nicht gefunden"
+
+    eintrag = {"Anzahl": anzahl, "Aktualisiert": zeitpunkt_utc()}
+    notiz = str(notiz or "").strip()
+    if notiz:
+        eintrag["Notiz"] = notiz
+    standort["Mitarbeiter"] = eintrag
+    return True, "Mitarbeiterbestand gespeichert"
+
+
+def mitarbeiteruebersicht_sammeln(baustellen_liste):
+    uebersicht = []
+    for standort_name in baustellen_namen(baustellen_liste):
+        standort = baustellen_liste.get(standort_name, {})
+        mitarbeiter = mitarbeiterbestand_auslesen(standort)
+        uebersicht.append(
+            {
+                "Standort": standort_name,
+                "Typ": standort.get("Typ", "Baustelle"),
+                "Anzahl": mitarbeiter.get("Anzahl", 0),
+                "Aktualisiert": mitarbeiter.get("Aktualisiert"),
+                "Notiz": mitarbeiter.get("Notiz"),
+            }
+        )
+
+    return sorted(uebersicht, key=lambda eintrag: eintrag["Standort"])
+
+
 def baustelle_umbenennen(baustellen_liste, alter_name, neuer_name):
     if alter_name not in baustellen_liste:
         return False, "Baustelle nicht gefunden"
@@ -372,6 +531,18 @@ def naechste_bestellanfrage_id(bestellanfragen_liste):
     return hoechste_id + 1
 
 
+def naechste_mitarbeiteranfrage_id(mitarbeiteranfragen_liste):
+    hoechste_id = 0
+    for mitarbeiteranfrage in mitarbeiteranfragen_liste:
+        if not isinstance(mitarbeiteranfrage, dict):
+            continue
+        anfrage_id = mitarbeiteranfrage.get("id", 0)
+        if isinstance(anfrage_id, int) and anfrage_id > hoechste_id:
+            hoechste_id = anfrage_id
+
+    return hoechste_id + 1
+
+
 def statushistorie_eintrag_erstellen(von_status, zu_status, grund):
     grund = str(grund or "Nicht angegeben").strip() or "Nicht angegeben"
     return {
@@ -416,6 +587,67 @@ def bestellanfrage_erstellen(
     }
     bestellanfragen_liste.append(bestellanfrage)
     return True, "Bestellanfrage gespeichert", bestellanfrage
+
+
+def mitarbeiteranfrage_erstellen(
+    mitarbeiteranfragen_liste, ziel, anzahl, rolle, grund
+):
+    if not ziel:
+        return False, "Bitte gib ein Ziel an", None
+    if not isinstance(anzahl, int):
+        return False, "Mitarbeiterzahl ist ungueltig", None
+    if anzahl <= 0:
+        return False, "Bitte gib eine Mitarbeiterzahl groesser als 0 ein", None
+
+    rolle = str(rolle or "Allgemein").strip() or "Allgemein"
+    grund = str(grund or "").strip()
+    if not grund:
+        return False, "Bitte gib einen Grund an", None
+
+    mitarbeiteranfrage = {
+        "id": naechste_mitarbeiteranfrage_id(mitarbeiteranfragen_liste),
+        "ziel": ziel,
+        "anzahl": anzahl,
+        "rolle": rolle,
+        "grund": grund,
+        "status": MITARBEITERANFRAGE_STATUS_OFFEN,
+        "erstelltAm": zeitpunkt_utc(),
+        "statusHistorie": [
+            statushistorie_eintrag_erstellen(
+                None,
+                MITARBEITERANFRAGE_STATUS_OFFEN,
+                "Mitarbeiteranfrage erstellt",
+            )
+        ],
+    }
+    mitarbeiteranfragen_liste.append(mitarbeiteranfrage)
+    return True, "Mitarbeiteranfrage gespeichert", mitarbeiteranfrage
+
+
+def offene_mitarbeiteranfragen_sammeln(mitarbeiteranfragen_liste):
+    return [
+        mitarbeiteranfrage
+        for mitarbeiteranfrage in mitarbeiteranfragen_liste
+        if isinstance(mitarbeiteranfrage, dict)
+        and mitarbeiteranfrage.get("status", MITARBEITERANFRAGE_STATUS_OFFEN)
+        in MITARBEITERANFRAGE_OFFENE_STATUS
+    ]
+
+
+def chef_uebersicht_erstellen(
+    baustellen_liste, bestellanfragen_liste, mitarbeiteranfragen_liste=None
+):
+    mitarbeiteranfragen_liste = mitarbeiteranfragen_liste or []
+    return {
+        "Baustellen": baustellen_namen(baustellen_liste),
+        "Gesamtbestand": gesamtbestand_sammeln(baustellen_liste),
+        "OffeneBestellanfragen": offene_bestellanfragen_sammeln(bestellanfragen_liste),
+        "KritischeBestaende": kritische_bestaende_sammeln(baustellen_liste),
+        "Mitarbeiter": mitarbeiteruebersicht_sammeln(baustellen_liste),
+        "OffeneMitarbeiteranfragen": offene_mitarbeiteranfragen_sammeln(
+            mitarbeiteranfragen_liste
+        ),
+    }
 
 
 def bestellanfrage_finden(bestellanfragen_liste, bestell_id):

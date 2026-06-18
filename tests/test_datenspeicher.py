@@ -8,6 +8,8 @@ from datenspeicher import (
     baustellen_speichern,
     bestellanfragen_laden,
     bestellanfragen_speichern,
+    mitarbeiteranfragen_laden,
+    mitarbeiteranfragen_speichern,
 )
 
 
@@ -71,6 +73,34 @@ class DatenspeicherTests(unittest.TestCase):
 
             with self.assertRaises(ValueError):
                 bestellanfragen_laden(dateipfad)
+
+    def test_mitarbeiteranfragen_laden_gibt_leere_liste_bei_fehlender_datei_zurueck(self):
+        with temporaeres_testverzeichnis() as ordner:
+            dateipfad = Path(ordner) / "mitarbeiteranfragen.json"
+
+            mitarbeiteranfragen = mitarbeiteranfragen_laden(dateipfad)
+
+        self.assertEqual(mitarbeiteranfragen, [])
+
+    def test_mitarbeiteranfragen_speichern_und_laden(self):
+        daten = [
+            {
+                "id": 1,
+                "ziel": "Bielefeld",
+                "anzahl": 3,
+                "rolle": "Maurer",
+                "grund": "Termin",
+                "status": "offen",
+            }
+        ]
+
+        with temporaeres_testverzeichnis() as ordner:
+            dateipfad = Path(ordner) / "mitarbeiteranfragen.json"
+
+            mitarbeiteranfragen_speichern(daten, dateipfad)
+            geladene_daten = mitarbeiteranfragen_laden(dateipfad)
+
+        self.assertEqual(geladene_daten, daten)
 
 
 if __name__ == "__main__":

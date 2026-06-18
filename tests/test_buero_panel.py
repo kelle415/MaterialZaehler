@@ -5,6 +5,7 @@ from buero_panel import (
     baustelleAnlegen,
     baustelleUmbenennen,
     bestellanfrageStatusAendern,
+    mitarbeiterbestandEintragen,
     materialbewegungenAnzeigen,
 )
 
@@ -118,7 +119,24 @@ class BueroPanelTests(unittest.TestCase):
             erfolgreich = baustelleAnlegen(baustellen)
 
         self.assertTrue(erfolgreich)
-        self.assertEqual(baustellen["Berlin"], {"Typ": "Baustelle", "Material": {}})
+        self.assertEqual(baustellen["Berlin"]["Typ"], "Baustelle")
+        self.assertEqual(baustellen["Berlin"]["Material"], {})
+        self.assertEqual(baustellen["Berlin"]["Mitarbeiter"]["Anzahl"], 0)
+        speichern.assert_called_once_with(baustellen)
+
+    def test_mitarbeiterbestand_eintragen_speichert_baustelle(self):
+        baustellen = {"Bielefeld": {"Material": {}}}
+
+        with patch(
+            "builtins.input",
+            side_effect=["Bielefeld", "6", "Rohbau"],
+        ), patch("builtins.print"), patch(
+            "buero_panel.baustellen_speichern"
+        ) as speichern:
+            erfolgreich = mitarbeiterbestandEintragen(baustellen)
+
+        self.assertTrue(erfolgreich)
+        self.assertEqual(baustellen["Bielefeld"]["Mitarbeiter"]["Anzahl"], 6)
         speichern.assert_called_once_with(baustellen)
 
     def test_baustelle_umbenennen_speichert_geaenderten_namen(self):

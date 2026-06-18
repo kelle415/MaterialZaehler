@@ -8,6 +8,8 @@ from datenspeicher import (
     baustellen_speichern,
     bestellanfragen_laden,
     bestellanfragen_speichern,
+    mitarbeiteranfragen_laden,
+    mitarbeiteranfragen_speichern,
 )
 from cli_helpers import (
     baustelleAbfragen,
@@ -16,6 +18,7 @@ from cli_helpers import (
     bestellDatenAbfragen,
     istJa,
     istNein,
+    mitarbeiterAnfrageDatenAbfragen,
     materialUndMengeAbfrage,
 )
 from material_logik import (
@@ -29,6 +32,7 @@ from material_logik import (
     material_namen,
     material_umbenennen,
     materialien_fuer_baustelle,
+    mitarbeiteranfrage_erstellen,
     menge_aendern,
     mengen_und_einheiten,
 )
@@ -275,19 +279,23 @@ def einheitAendernabfragen(
 
 def bestellMenue(baustellenListe, bestellanfragenListe):
     print(
-        "\nMaterial bestellen"
-        "\n 1. Bestellanfrage erstellen"
-        "\n 2. Bestellanfragen anzeigen"
-        "\n 3. Zurück zum Hauptmenü"
+        "\nBedarf bestellen"
+        "\n 1. Material-Bestellanfrage erstellen"
+        "\n 2. Mitarbeiter anfragen"
+        "\n 3. Bestellanfragen anzeigen"
+        "\n 4. Zurueck zum Hauptmenue"
     )
     auswahl = input("\nAntwort: ").strip().lower()
-    if auswahl in ("1", "bestellanfrage erstellen", "erstellen"):
+    if auswahl in ("1", "bestellanfrage erstellen", "material", "erstellen"):
         bestellanfrageErstellen(baustellenListe, bestellanfragenListe)
         zurueck(baustellenListe, bestellanfragenListe)
-    elif auswahl in ("2", "bestellanfragen anzeigen", "anzeigen"):
+    elif auswahl in ("2", "mitarbeiter anfragen", "mitarbeiter", "personal"):
+        mitarbeiteranfrageErstellen(baustellenListe)
+        zurueck(baustellenListe, bestellanfragenListe)
+    elif auswahl in ("3", "bestellanfragen anzeigen", "anzeigen"):
         bestellanfragenAnzeigen(bestellanfragenListe)
         zurueck(baustellenListe, bestellanfragenListe)
-    elif auswahl in ("3", "zurück", "zurueck"):
+    elif auswahl in ("4", "zurueck", "zurück"):
         menueverweis(baustellenListe, bestellanfragenListe)
     else:
         print("ungültige eingabe")
@@ -320,6 +328,30 @@ def bestellanfrageErstellen(baustellenListe, bestellanfragenListe):
     if erfolgreich:
         bestellanfragen_speichern(bestellanfragenListe)
         print(f"Bestellnummer: {bestellanfrage['id']}")
+
+
+def mitarbeiteranfrageErstellen(baustellenListe):
+    ziel, anzahl, rolle, grund = mitarbeiterAnfrageDatenAbfragen(baustellenListe)
+    print(
+        f"\nMitarbeiteranfrage: {anzahl} zusaetzliche Mitarbeiter "
+        f"fuer {ziel} ({rolle}) erstellen? (J/N)"
+    )
+    sicherheitsfrage = input("Antwort: ")
+    if istNein(sicherheitsfrage):
+        print("Mitarbeiteranfrage abgebrochen.")
+        return
+    if not istJa(sicherheitsfrage):
+        print("unverwertbare eingabe")
+        return
+
+    mitarbeiteranfragenListe = mitarbeiteranfragen_laden()
+    erfolgreich, meldung, mitarbeiteranfrage = mitarbeiteranfrage_erstellen(
+        mitarbeiteranfragenListe, ziel, anzahl, rolle, grund
+    )
+    print(meldung)
+    if erfolgreich:
+        mitarbeiteranfragen_speichern(mitarbeiteranfragenListe)
+        print(f"Mitarbeiteranfrage: {mitarbeiteranfrage['id']}")
 
 
 def bestellanfragenAnzeigen(bestellanfragenListe):

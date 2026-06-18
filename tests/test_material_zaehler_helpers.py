@@ -9,9 +9,10 @@ from cli_helpers import (
     ganzzahlAbfragen,
     istJa,
     istNein,
+    mitarbeiterAnfrageDatenAbfragen,
     textAbfragen,
 )
-from materialZaehler import materialEintragen
+from materialZaehler import materialEintragen, mitarbeiteranfrageErstellen
 
 
 class MaterialZaehlerHelperTests(unittest.TestCase):
@@ -89,6 +90,20 @@ class MaterialZaehlerHelperTests(unittest.TestCase):
         self.assertEqual(materialmenge, 5)
         self.assertEqual(materialeinheit, "kg")
 
+    def test_mitarbeiter_anfrage_daten_abfragen(self):
+        baustellen = {"Bielefeld": {"Material": {}}}
+
+        with patch(
+            "builtins.input",
+            side_effect=["Bielefeld", "3", "Maurer", "Termin zieht an"],
+        ), patch("builtins.print"):
+            ziel, anzahl, rolle, grund = mitarbeiterAnfrageDatenAbfragen(baustellen)
+
+        self.assertEqual(ziel, "Bielefeld")
+        self.assertEqual(anzahl, 3)
+        self.assertEqual(rolle, "Maurer")
+        self.assertEqual(grund, "Termin zieht an")
+
     def test_baustellen_namen_aenderung_abfragen_nutzt_vorschlag(self):
         baustellen = {"Bielefeld": {"Material": {}}}
 
@@ -142,6 +157,25 @@ class MaterialZaehlerHelperTests(unittest.TestCase):
             materialEintragen(baustellen, "Bielefeld")
 
         self.assertEqual(baustellen["Bielefeld"]["Material"]["Zement"]["Menge"], 0)
+
+    def test_mitarbeiteranfrage_erstellen_speichert_anfrage(self):
+        baustellen = {"Bielefeld": {"Material": {}}}
+
+        with patch(
+            "builtins.input",
+            side_effect=["Bielefeld", "3", "Maurer", "Termin zieht an", "j"],
+        ), patch("builtins.print"), patch(
+            "materialZaehler.mitarbeiteranfragen_laden",
+            return_value=[],
+        ), patch(
+            "materialZaehler.mitarbeiteranfragen_speichern"
+        ) as speichern:
+            mitarbeiteranfrageErstellen(baustellen)
+
+        gespeicherte_anfragen = speichern.call_args.args[0]
+        self.assertEqual(gespeicherte_anfragen[0]["ziel"], "Bielefeld")
+        self.assertEqual(gespeicherte_anfragen[0]["anzahl"], 3)
+        self.assertEqual(gespeicherte_anfragen[0]["rolle"], "Maurer")
 
 
 if __name__ == "__main__":

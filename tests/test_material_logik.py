@@ -16,15 +16,23 @@ from material_logik import (
     bestellanfrage_wareneingang_buchen,
     bestellstatus_normalisieren,
     buchungsart_normalisieren,
+    chef_uebersicht_erstellen,
     einheit_aendern,
+    gesamtbestand_sammeln,
+    kritische_bestaende_sammeln,
     lager_sicherstellen,
     material_eintragen,
     materialbewegungen_sammeln,
     material_namen,
     material_umbenennen,
     materialien_fuer_baustelle,
+    mitarbeiteranfrage_erstellen,
+    mitarbeiterbestand_setzen,
+    mitarbeiteruebersicht_sammeln,
     menge_aendern,
     mengen_und_einheiten,
+    offene_bestellanfragen_sammeln,
+    offene_mitarbeiteranfragen_sammeln,
 )
 
 
@@ -188,6 +196,43 @@ class MaterialLogikTests(unittest.TestCase):
         self.assertEqual(bewegungen[0]["Standort"], "Hamburg")
         self.assertEqual(bewegungen[0]["Material"], "Holz")
 
+    def test_gesamtbestand_sammeln_addiert_material_ueber_standorte(self):
+        baustellen = beispiel_baustellen()
+
+        bestand = gesamtbestand_sammeln(baustellen)
+
+        zement = next(eintrag for eintrag in bestand if eintrag["Material"] == "Zement")
+        self.assertEqual(zement["Gesamtmenge"], 200)
+        self.assertEqual(zement["Einheit"], "kg")
+        self.assertEqual(zement["Standorte"][0]["Standort"], "Bielefeld")
+
+    def test_kritische_bestaende_sammeln_findet_leere_und_mindestbestand(self):
+        baustellen = {
+            "Bielefeld": {
+                "Material": {
+                    "Zement": {"Menge": 0, "Einheit": "kg"},
+                    "Hammer": {"Menge": 3, "Einheit": "Stk", "Mindestbestand": 5},
+                }
+            }
+        }
+
+        kritische_bestaende = kritische_bestaende_sammeln(baustellen)
+
+        self.assertEqual(len(kritische_bestaende), 2)
+        self.assertEqual(kritische_bestaende[0]["Grund"], "unter Mindestbestand")
+        self.assertEqual(kritische_bestaende[1]["Grund"], "leer")
+
+    def test_offene_bestellanfragen_sammeln_filtert_abgeschlossene_status(self):
+        bestellanfragen = [
+            {"id": 1, "status": "offen"},
+            {"id": 2, "status": "bestellt"},
+            {"id": 3, "status": "abgeschlossen"},
+        ]
+
+        offene_bestellungen = offene_bestellanfragen_sammeln(bestellanfragen)
+
+        self.assertEqual([bestellung["id"] for bestellung in offene_bestellungen], [1, 2])
+
     def test_material_eintragen_zieht_abgang_ab(self):
         baustellen = beispiel_baustellen()
 
@@ -288,7 +333,9 @@ class MaterialLogikTests(unittest.TestCase):
 
         self.assertTrue(erfolgreich)
         self.assertEqual(meldung, "Baustelle angelegt")
-        self.assertEqual(baustellen["Berlin"], {"Typ": "Baustelle", "Material": {}})
+        self.assertEqual(baustellen["Berlin"]["Typ"], "Baustelle")
+        self.assertEqual(baustellen["Berlin"]["Material"], {})
+        self.assertEqual(baustellen["Berlin"]["Mitarbeiter"]["Anzahl"], 0)
 
     def test_baustelle_anlegen_verhindert_doppelten_namen(self):
         baustellen = beispiel_baustellen()
@@ -475,6 +522,70 @@ class MaterialLogikTests(unittest.TestCase):
         self.assertEqual(meldung, "Wareneingang wurde bereits gebucht")
         self.assertIsNone(bestellanfrage)
         self.assertEqual(baustellen["Bielefeld"]["Material"]["Zement"]["Menge"], 200)
+
+    def test_mitarbeiterbestand_setzen_und_uebersicht_sammeln(self):
+        baustellen = beispiel_baustellen()
+
+        erfolgreich, meldung = mitarbeiterbestand_setzen(
+            baustellen, "Bielefeld", 8, "Rohbau"
+        )
+        uebersicht = mitarbeiteruebersicht_sammeln(baustellen)
+
+        self.assertTrue(erfolgreich)
+        self.assertEqual(meldung, "Mitarbeiterbestand gespeichert")
+        bielefeld = next(eintrag for eintrag in uebersicht if eintrag["Standort"] == "Bielefeld")
+        self.assertEqual(bielefeld["Anzahl"], 8)
+        self.assertEqual(bielefeld["Notiz"], "Rohbau")
+
+    def test_mitarbeiterbestand_setzen_lehnt_unbekannte_baustelle_ab(self):
+        baustellen = beispiel_baustellen()
+
+        erfolgreich, meldung = mitarbeiterbestand_setzen(
+            baustellen, "Berlin", 3
+        )
+
+        self.assertFalse(erfolgreich)
+        self.assertEqual(meldung, "Baustelle nicht gefunden")
+
+    def test_mitarbeiteranfrage_erstellen(self):
+        mitarbeiteranfragen = [{"id": 2}]
+
+        erfolgreich, meldung, anfrage = mitarbeiteranfrage_erstellen(
+            mitarbeiteranfragen, "Bielefeld", 4, "Maurer", "Termin zieht an"
+        )
+
+        self.assertTrue(erfolgreich)
+        self.assertEqual(meldung, "Mitarbeiteranfrage gespeichert")
+        self.assertEqual(anfrage["id"], 3)
+        self.assertEqual(anfrage["status"], "offen")
+        self.assertEqual(anfrage["anzahl"], 4)
+        self.assertEqual(anfrage["rolle"], "Maurer")
+        self.assertEqual(anfrage["statusHistorie"][0]["zu"], "offen")
+
+    def test_offene_mitarbeiteranfragen_sammeln_filtert_erledigte(self):
+        mitarbeiteranfragen = [
+            {"id": 1, "status": "offen"},
+            {"id": 2, "status": "eingeplant"},
+            {"id": 3, "status": "erledigt"},
+        ]
+
+        offene_anfragen = offene_mitarbeiteranfragen_sammeln(mitarbeiteranfragen)
+
+        self.assertEqual([anfrage["id"] for anfrage in offene_anfragen], [1, 2])
+
+    def test_chef_uebersicht_erstellen_buendelt_alle_bereiche(self):
+        baustellen = beispiel_baustellen()
+        bestellanfragen = [{"id": 1, "status": "offen"}]
+        mitarbeiteranfragen = [{"id": 1, "status": "offen"}]
+
+        uebersicht = chef_uebersicht_erstellen(
+            baustellen, bestellanfragen, mitarbeiteranfragen
+        )
+
+        self.assertIn("Bielefeld", uebersicht["Baustellen"])
+        self.assertEqual(len(uebersicht["Gesamtbestand"]), 2)
+        self.assertEqual(len(uebersicht["OffeneBestellanfragen"]), 1)
+        self.assertEqual(len(uebersicht["OffeneMitarbeiteranfragen"]), 1)
 
     def test_bestellanfrage_status_aendern_lehnt_unbekannte_id_ab(self):
         bestellanfragen = [{"id": 3, "status": "offen"}]

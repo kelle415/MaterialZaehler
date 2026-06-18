@@ -36,6 +36,7 @@ Typische Aufgaben:
 - Materialabgang erfassen
 - Bestand korrigieren
 - Materialbedarf als Bestellanfrage melden
+- Bedarf fuer zusaetzliche Mitarbeiter melden
 
 Nicht im Fokus:
 
@@ -57,6 +58,8 @@ Typische Aufgaben:
 - Bestellstatus aendern
 - Wareneingang aus gelieferten Bestellanfragen buchen
 - Baustellen anlegen, umbenennen oder stilllegen
+- Mitarbeiterbestand auf Baustellen eintragen
+- offene Mitarbeiteranfragen anzeigen
 - organisatorische Materialdaten pflegen
 - Materialbewegungen anzeigen
 - offene Bedarfe ueberwachen
@@ -79,6 +82,9 @@ Typische Aufgaben:
 - offene Bestellanfragen sehen
 - kritische Bestaende erkennen
 - Materialbewegungen auswerten
+- Baustellen anlegen
+- Mitarbeiterbestand auf Baustellen eintragen
+- offene Mitarbeiteranfragen sehen
 - Kennzahlen und Berichte abrufen
 
 Nicht im Fokus:
@@ -116,9 +122,12 @@ Nicht im Fokus:
 | Bestellanfrage erstellen | ja | ja | nein | nein |
 | Bestellanfragen anzeigen | eingeschraenkt | ja | ja | ja |
 | Bestellanfrage bearbeiten | nein | ja | eingeschraenkt | nein |
-| Baustelle anlegen | nein | ja | nein | ja |
+| Baustelle anlegen | nein | ja | ja | ja |
 | Baustelle umbenennen | nein | ja | nein | ja |
 | Materialbewegungen auswerten | nein | ja | ja | ja |
+| Mitarbeiterbestand eintragen | nein | ja | ja | ja |
+| Mitarbeiteranfrage erstellen | ja | ja | nein | nein |
+| Mitarbeiteranfragen anzeigen | eingeschraenkt | ja | ja | ja |
 | Benutzer verwalten | nein | nein | nein | ja |
 | technische Konfiguration | nein | nein | nein | ja |
 
@@ -134,6 +143,9 @@ python materialZaehler.py
 
 Diese Oberflaeche bleibt auf schnelle Eingaben vor Ort ausgerichtet. Sie soll
 nicht mit Buero- oder Admin-Funktionen ueberladen werden.
+
+Der Baustellen-User kann Materialbedarf und zusaetzlichen Mitarbeiterbedarf
+melden. Das ist eine Bedarfsmeldung, keine Personalplanung.
 
 ### Buero-Panel
 
@@ -154,7 +166,31 @@ Aktuelle Kernfunktionen:
 4. Baustelle anlegen
 5. Baustelle umbenennen
 6. Materialbewegungen anzeigen
-7. Zurueck oder beenden
+7. Mitarbeiterbestand eintragen
+8. Mitarbeiteranfragen anzeigen
+9. Zurueck oder beenden
+
+### Chef-Panel
+
+Bestehender Einstieg:
+
+```powershell
+python chef_panel.py
+```
+
+Das Chef-Panel ist fuer Gesamtuebersicht und steuernde Eingriffe vorgesehen.
+Aktuelle Kernfunktionen:
+
+1. Chef-Uebersicht anzeigen
+2. Gesamtbestand anzeigen
+3. Offene Bestellungen anzeigen
+4. Kritische oder leere Bestaende anzeigen
+5. Baustelle anlegen
+6. Mitarbeiterbestand eintragen
+7. Mitarbeiteruebersicht anzeigen
+8. Mitarbeiteranfragen anzeigen
+9. Materialbewegungen anzeigen
+10. Beenden
 
 ## Bestellanfragen im Zielbild
 
@@ -172,6 +208,15 @@ Sinnvolle Statuswerte:
 Eine gelieferte Bestellanfrage wird im Buero-Panel bewusst als Wareneingang
 gebucht. Dabei entsteht ein Materialzugang am Zielstandort, und die
 Materialbewegung verweist auf die Bestellanfrage.
+
+## Mitarbeiterbedarf im Zielbild
+
+Mitarbeiterbestand wird an der Baustelle gespeichert. Chef und Buero koennen
+den aktuellen Stand eintragen. Der Baustellen-User kann eine
+Mitarbeiteranfrage erstellen, wenn zusaetzliches Personal benoetigt wird.
+
+Mitarbeiteranfragen sind bewusst von Material-Bestellanfragen getrennt, weil sie
+spaeter andere Statuswerte, Planungsdaten und Verantwortlichkeiten brauchen.
 
 ## Entwicklungsregeln fuer neue Features
 
@@ -195,4 +240,5 @@ Materialbewegung verweist auf die Bestellanfrage.
 - Welche Funktionen darf die Chef-Rolle nur lesen und welche aktiv bearbeiten?
 - Welche Filter und Auswertungen brauchen Materialbewegungen im Buero- und
   Chef-Bereich?
+- Wie sollen Mitarbeiteranfragen eingeplant, abgeschlossen oder storniert werden?
 - Wann wird die JSON-Datenhaltung durch eine Datenbank ersetzt?

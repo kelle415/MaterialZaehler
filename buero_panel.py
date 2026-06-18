@@ -17,6 +17,8 @@ from datenspeicher import (
     baustellen_speichern,
     bestellanfragen_laden,
     bestellanfragen_speichern,
+    mitarbeiteranfragen_laden,
+    mitarbeiteranfragen_speichern,
 )
 from material_logik import (
     BESTELLSTATUS_GELIEFERT,
@@ -29,6 +31,9 @@ from material_logik import (
     bestellstatus_normalisieren,
     lager_sicherstellen,
     materialbewegungen_sammeln,
+    mitarbeiterbestand_setzen,
+    mitarbeiteruebersicht_sammeln,
+    offene_mitarbeiteranfragen_sammeln,
 )
 
 
@@ -169,6 +174,63 @@ def materialbewegungenAnzeigen(baustellenListe, limit=20):
     return True
 
 
+def mitarbeiteruebersichtAnzeigen(baustellenListe):
+    print("\n", "-" * 35)
+    print(" Mitarbeiter auf Baustellen")
+    uebersicht = mitarbeiteruebersicht_sammeln(baustellenListe)
+    if not uebersicht:
+        print("Keine Baustellen vorhanden")
+        print("-" * 35, "\n")
+        return False
+
+    for eintrag in uebersicht:
+        zeile = f"- {eintrag.get('Standort')}: {eintrag.get('Anzahl')} Mitarbeiter"
+        if eintrag.get("Notiz"):
+            zeile += f" | {eintrag.get('Notiz')}"
+        print(zeile)
+
+    print("-" * 35, "\n")
+    return True
+
+
+def mitarbeiteranfragenAnzeigen(mitarbeiteranfragenListe):
+    print("\n", "-" * 35)
+    print(" Offene Mitarbeiteranfragen")
+    offene_anfragen = offene_mitarbeiteranfragen_sammeln(mitarbeiteranfragenListe)
+    if not offene_anfragen:
+        print("Keine offenen Mitarbeiteranfragen vorhanden")
+        print("-" * 35, "\n")
+        return False
+
+    for anfrage in offene_anfragen:
+        print(
+            f"- #{anfrage.get('id')}: {anfrage.get('anzahl')} "
+            f"{anfrage.get('rolle')} fuer {anfrage.get('ziel')} "
+            f"({anfrage.get('status')}) - {anfrage.get('grund')}"
+        )
+
+    print("-" * 35, "\n")
+    return True
+
+
+def mitarbeiterbestandEintragen(baustellenListe):
+    baustellen_name = textAbfragen(
+        "Fuer welche Baustelle soll der Mitarbeiterbestand gesetzt werden: ",
+        "Bitte gib einen Baustellennamen ein.",
+    )
+    anzahl = ganzzahlAbfragen("Wie viele Mitarbeiter sind dort aktuell: ", minimum=0)
+    notiz = input("Notiz optional: ").strip()
+
+    erfolgreich, meldung = mitarbeiterbestand_setzen(
+        baustellenListe, baustellen_name, anzahl, notiz
+    )
+    print(meldung)
+    if erfolgreich:
+        baustellen_speichern(baustellenListe)
+        mitarbeiteruebersichtAnzeigen(baustellenListe)
+    return erfolgreich
+
+
 def baustelleAnlegen(baustellenListe):
     baustellen_name = textAbfragen(
         "Wie heisst die neue Baustelle: ",
@@ -201,7 +263,10 @@ def baustelleUmbenennen(baustellenListe):
     return erfolgreich
 
 
-def bueroMenue(baustellenListe, bestellanfragenListe):
+def bueroMenue(baustellenListe, bestellanfragenListe, mitarbeiteranfragenListe=None):
+    if mitarbeiteranfragenListe is None:
+        mitarbeiteranfragenListe = []
+
     while True:
         print(
             "\nBuero-Panel"
@@ -211,7 +276,9 @@ def bueroMenue(baustellenListe, bestellanfragenListe):
             "\n 4. Baustelle anlegen"
             "\n 5. Baustelle umbenennen"
             "\n 6. Materialbewegungen anzeigen"
-            "\n 7. Beenden"
+            "\n 7. Mitarbeiterbestand eintragen"
+            "\n 8. Mitarbeiteranfragen anzeigen"
+            "\n 9. Beenden"
         )
         auswahl = input("\nAntwort: ").strip().lower()
         if auswahl in ("1", "bestellanfragen anzeigen", "anzeigen"):
@@ -226,9 +293,14 @@ def bueroMenue(baustellenListe, bestellanfragenListe):
             baustelleUmbenennen(baustellenListe)
         elif auswahl in ("6", "materialbewegungen anzeigen", "bewegungen"):
             materialbewegungenAnzeigen(baustellenListe)
-        elif auswahl in ("7", "beenden"):
+        elif auswahl in ("7", "mitarbeiterbestand", "mitarbeiter eintragen"):
+            mitarbeiterbestandEintragen(baustellenListe)
+        elif auswahl in ("8", "mitarbeiteranfragen", "personalbedarf"):
+            mitarbeiteranfragenAnzeigen(mitarbeiteranfragenListe)
+        elif auswahl in ("9", "beenden"):
             baustellen_speichern(baustellenListe)
             bestellanfragen_speichern(bestellanfragenListe)
+            mitarbeiteranfragen_speichern(mitarbeiteranfragenListe)
             print("Daten gespeichert. Auf wieder sehen")
             raise SystemExit(0)
         else:
@@ -240,7 +312,8 @@ def main():
     if lager_sicherstellen(baustellenListe):
         baustellen_speichern(baustellenListe)
     bestellanfragenListe = bestellanfragen_laden()
-    bueroMenue(baustellenListe, bestellanfragenListe)
+    mitarbeiteranfragenListe = mitarbeiteranfragen_laden()
+    bueroMenue(baustellenListe, bestellanfragenListe, mitarbeiteranfragenListe)
 
 
 if __name__ == "__main__":
