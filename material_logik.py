@@ -1,3 +1,7 @@
+from difflib import SequenceMatcher
+import unicodedata
+
+
 FIRMENLAGER_NAME = "Firmenlager"
 
 
@@ -9,6 +13,30 @@ def baustellen_namen(baustellen_liste):
     return [
         name for name, eintrag in baustellen_liste.items() if ist_standort(eintrag)
     ]
+
+
+def text_normalisieren(text):
+    text = str(text).strip().casefold()
+    text = unicodedata.normalize("NFKD", text)
+    return "".join(zeichen for zeichen in text if not unicodedata.combining(zeichen))
+
+
+def baustellen_vorschlaege(
+    baustellen_liste, eingabe, mindest_aehnlichkeit=60, limit=3
+):
+    suchtext = text_normalisieren(eingabe)
+    if not suchtext:
+        return []
+
+    vorschlaege = []
+    for baustellen_name in baustellen_namen(baustellen_liste):
+        kandidat = text_normalisieren(baustellen_name)
+        aehnlichkeit = round(SequenceMatcher(None, suchtext, kandidat).ratio() * 100)
+        if aehnlichkeit >= mindest_aehnlichkeit:
+            vorschlaege.append((baustellen_name, aehnlichkeit))
+
+    vorschlaege.sort(key=lambda vorschlag: (-vorschlag[1], vorschlag[0]))
+    return vorschlaege[:limit]
 
 
 def lager_sicherstellen(baustellen_liste):

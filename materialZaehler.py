@@ -13,6 +13,7 @@ from material_logik import (
     FIRMENLAGER_NAME,
     baustelle_umbenennen,
     baustellen_namen,
+    baustellen_vorschlaege,
     bestellanfrage_erstellen,
     einheit_aendern,
     lager_sicherstellen,
@@ -56,11 +57,60 @@ def textAbfragen(frage, fehlermeldung):
         print(fehlermeldung)
 
 
-def baustelleAbfragen():
-    return textAbfragen(
-        "Auf welcher baustelle bist du im moment: ",
+def baustelleIstBekannt(baustellenListe, baustellenInput):
+    return baustellenInput in baustellen_namen(baustellenListe)
+
+
+def baustelleAbfragen(
+    baustellenListe=None,
+    neueBaustelleErlaubt=True,
+    frage="Auf welcher baustelle bist du im moment: ",
+    fehlermeldung="Bitte gib einen Baustellennamen ein.",
+):
+    while True:
+        baustellenInput = textAbfragen(frage, fehlermeldung)
+        if baustellenListe is None or baustelleIstBekannt(
+            baustellenListe, baustellenInput
+        ):
+            return baustellenInput
+
+        vorschlaege = baustellen_vorschlaege(
+            baustellenListe, baustellenInput, limit=1
+        )
+        if vorschlaege:
+            vorschlag, aehnlichkeit = vorschlaege[0]
+            print(
+                f'Meintest du "{vorschlag}"? '
+                f"({aehnlichkeit}% Uebereinstimmung) (J/N)"
+            )
+            bestaetigung = input("Antwort: ")
+            if istJa(bestaetigung):
+                return vorschlag
+            if not istNein(bestaetigung):
+                print("unverwertbare eingabe")
+                continue
+
+        if neueBaustelleErlaubt:
+            return baustellenInput
+
+        print("Standort nicht gefunden. Bitte erneut eingeben.")
+
+
+def baustellenNamenAenderungAbfragen(baustellenListe):
+    zuaendern = baustelleAbfragen(
+        baustellenListe,
+        False,
+        "Welche Baustelle soll umbenannt werden: ",
         "Bitte gib einen Baustellennamen ein.",
     )
+    geandert = textAbfragen(
+        "\nWie soll der neue name heissen ? ",
+        "Bitte gib einen neuen Baustellennamen ein.",
+    )
+
+    print(f"\nBist du sicher das {zuaendern} zu {geandert} geaendert werden soll? (J/N)")
+    sicherheitsfrage = input("Antwort: ")
+    return zuaendern, geandert, sicherheitsfrage, None
 
 
 def materialUndMengeAbfrage():
@@ -79,8 +129,10 @@ def materialUndMengeAbfrage():
     return materialname, materialmenge, materialeinheit
 
 
-def bestellDatenAbfragen():
-    ziel = textAbfragen(
+def bestellDatenAbfragen(baustellenListe):
+    ziel = baustelleAbfragen(
+        baustellenListe,
+        True,
         "Für welche Baustelle oder welchen Standort wird Material gebraucht: ",
         "Bitte gib ein Ziel an.",
     )
@@ -111,11 +163,11 @@ def menueverweis(baustellenListe, bestellanfragenListe):
     )
     menue = str(input("\nAntwort: ")).strip().lower()
     if menue in ("eintragen", "material eintragen", "1"):
-        baustellenInput = baustelleAbfragen()
+        baustellenInput = baustelleAbfragen(baustellenListe)
         materialEintragen(baustellenListe, baustellenInput)
         zurueck(baustellenListe, bestellanfragenListe)
     elif menue in ("liste anzeigen", "material anzeigen", "2"):
-        baustellenInput = baustelleAbfragen()
+        baustellenInput = baustelleAbfragen(baustellenListe, False)
         materialAnzeigen(baustellenListe, baustellenInput)
         zurueck(baustellenListe, bestellanfragenListe)
     elif menue in (
@@ -126,7 +178,7 @@ def menueverweis(baustellenListe, bestellanfragenListe):
         "aendern",
         "3",
     ):
-        baustellenInput = baustelleAbfragen()
+        baustellenInput = baustelleAbfragen(baustellenListe, False)
         allgemeinAendernabfragen(baustellenListe, bestellanfragenListe, baustellenInput)
         zurueck(baustellenListe, bestellanfragenListe)
     elif menue in ("lager anzeigen", "lager", "4"):
@@ -235,8 +287,9 @@ def baustelleAendernabfragen(
     )
     aenderninput = input("Antwort: ")
     if istJa(aenderninput):
-        modus = modus1(False)
-        zuaendern, geandert, sicherheitsfrage, materialname = aendernabfragen(modus)
+        zuaendern, geandert, sicherheitsfrage, materialname = (
+            baustellenNamenAenderungAbfragen(baustellenListe)
+        )
         baustellennamenaendern(
             baustellenListe,
             baustellenInput,
@@ -353,8 +406,10 @@ def bestellMenue(baustellenListe, bestellanfragenListe):
 
 
 def bestellanfrageErstellen(baustellenListe, bestellanfragenListe):
-    ziel, materialname, materialmenge, materialeinheit = bestellDatenAbfragen()
-    if ziel not in baustellenListe:
+    ziel, materialname, materialmenge, materialeinheit = bestellDatenAbfragen(
+        baustellenListe
+    )
+    if not baustelleIstBekannt(baustellenListe, ziel):
         print("Hinweis: Das Ziel existiert noch nicht als Baustelle oder Lager.")
 
     print(

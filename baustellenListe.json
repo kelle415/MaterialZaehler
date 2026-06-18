@@ -54,5 +54,14 @@
     "Firmenlager": {
         "Typ": "Lager",
         "Material": {}
+    },
+    "Niederrein": {
+        "Typ": "Baustelle",
+        "Material": {
+            "Holz": {
+                "Menge": 2000,
+                "Einheit": "kg"
+            }
+        }
     }
 }

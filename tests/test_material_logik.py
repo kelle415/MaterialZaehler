@@ -4,6 +4,7 @@ from material_logik import (
     FIRMENLAGER_NAME,
     baustelle_umbenennen,
     baustellen_namen,
+    baustellen_vorschlaege,
     bestellanfrage_erstellen,
     einheit_aendern,
     lager_sicherstellen,
@@ -36,6 +37,28 @@ class MaterialLogikTests(unittest.TestCase):
         namen = baustellen_namen(baustellen)
 
         self.assertEqual(namen, ["Bielefeld", "Hamburg"])
+
+    def test_baustellen_vorschlaege_findet_aehnlichen_namen(self):
+        baustellen = beispiel_baustellen()
+
+        vorschlaege = baustellen_vorschlaege(baustellen, "BIifeld")
+
+        self.assertEqual(vorschlaege[0][0], "Bielefeld")
+        self.assertGreaterEqual(vorschlaege[0][1], 60)
+
+    def test_baustellen_vorschlaege_ignoriert_schwache_treffer(self):
+        baustellen = beispiel_baustellen()
+
+        vorschlaege = baustellen_vorschlaege(baustellen, "xyz")
+
+        self.assertEqual(vorschlaege, [])
+
+    def test_baustellen_vorschlaege_ignoriert_umlaute(self):
+        baustellen = {"K\u00f6ln": {"Material": {}}}
+
+        vorschlaege = baustellen_vorschlaege(baustellen, "Koln")
+
+        self.assertEqual(vorschlaege[0][0], "K\u00f6ln")
 
     def test_lager_sicherstellen_legt_firmenlager_an(self):
         baustellen = beispiel_baustellen()
